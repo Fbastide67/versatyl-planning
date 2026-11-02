@@ -22,8 +22,8 @@ export const CONFIG = {
 
   // Postes proposés à l'inscription (on peut en cocher plusieurs et en saisir d'autres)
   roles: [
-    'Gérant·e', 'Manager', 'Direction artistique', 'Graphiste', 'Communication',
-    'Commercial·e', 'Production', 'Logistique', 'Développeur·se', 'Stagiaire',
+    'Président', 'Trésorerie', 'Alternant de Com', 'Réalisateur', 'Vidéaste',
+    'Photographe', 'Monteur', 'Graphiste', 'Animatrice 3D',
   ],
 
   contracts: ['CDI', 'CDD', 'Alternance', 'Stage', 'Freelance', 'Intérim', 'Bénévole'],
