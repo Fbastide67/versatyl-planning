@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Versatyl Planning</title>
+  <meta name="description" content="Planning d'équipe, deadlines et registre du personnel Versatyl.">
+  <meta name="theme-color" content="#0b0714">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Versatyl">
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    try {
+      var t = localStorage.getItem('vp_theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="splash" class="splash" aria-label="Chargement de Versatyl Planning">
+    <img class="splash-fallback" src="assets/mascotte.png" alt="">
+    <video class="splash-video" src="assets/da/anim-2.mp4" autoplay muted playsinline preload="auto"
+           onerror="this.remove()" onstalled="this.style.opacity=0"></video>
+    <div class="splash-status">
+      <div class="splash-bar"><span></span></div>
+      <span>Chargement du planning</span>
+    </div>
+  </div>
+  <div id="root"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <noscript>Active JavaScript pour utiliser Versatyl Planning.</noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

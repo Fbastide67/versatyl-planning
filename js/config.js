@@ -1,0 +1,27 @@
+// =====================================================================
+//  Configuration de Versatyl Planning
+// =====================================================================
+//  Tant que supabaseUrl / supabaseAnonKey sont vides, le site tourne en
+//  « mode démo » : tout est enregistré dans le navigateur de chacun.
+//  Une fois Supabase branché (voir README), toute l'équipe partage les
+//  mêmes comptes, le même planning et reçoit les rappels.
+// =====================================================================
+
+export const CONFIG = {
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+
+  // Clé publique des notifications push (la clé privée est un secret GitHub)
+  vapidPublicKey: 'BBwwklro244TvQxe_OuYXO1XkTpdvuM9tpaRDRilGWNexE-xS4zWkWQsPXFXO5mXEYJ0ZqNZ7BzW4m3lTXFnLMI',
+
+  // Adresse publique du site (utilisée dans les mails de rappel)
+  siteUrl: 'https://fbastide67.github.io/versatyl-planning/',
+
+  // Postes proposés à l'inscription (on peut aussi en saisir un autre)
+  roles: [
+    'Gérant·e', 'Manager', 'Direction artistique', 'Graphiste', 'Communication',
+    'Commercial·e', 'Production', 'Logistique', 'Développeur·se', 'Stagiaire',
+  ],
+
+  contracts: ['CDI', 'CDD', 'Alternance', 'Stage', 'Freelance', 'Intérim', 'Bénévole'],
+};

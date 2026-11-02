@@ -1,0 +1,13 @@
+{
+  "name": "versatyl-planning",
+  "private": true,
+  "type": "module",
+  "description": "Planning d'équipe Versatyl : site statique (GitHub Pages) + rappels via GitHub Actions",
+  "scripts": {
+    "reminders": "node scripts/reminders.mjs"
+  },
+  "dependencies": {
+    "nodemailer": "6.9.16",
+    "web-push": "3.6.7"
+  }
+}
