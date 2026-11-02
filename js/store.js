@@ -1,6 +1,6 @@
 // Accès aux données : Supabase (partagé) ou mode démo (localStorage)
 import { CONFIG } from './config.js';
-import { involvedIds } from './events.js';
+import { involvedIds, canSee } from './events.js';
 
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 
@@ -60,19 +60,14 @@ class SupabaseStore {
   adminSetPassword(token, id, hash) { return this.#rpc('app_admin_set_password', { p_token: token, p_id: id, p_new_hash: hash }); }
   deleteEmployee(token, id) { return this.#rpc('app_delete_employee', { p_token: token, p_id: id }); }
 
-  listEvents() {
-    const since = new Date(Date.now() - 365 * 86400000).toISOString();
-    return this.#select(this.sb.from('events').select('*').gte('starts_at', since).order('starts_at'));
-  }
+  // Via une fonction : les éléments privés ne sont renvoyés qu'aux personnes concernées
+  listEvents(token) { return this.#rpc('app_list_events', { p_token: token }); }
   createEvent(token, ev) { return this.#rpc('app_create_event', { p_token: token, p_event: ev }); }
   updateEvent(token, id, ev) { return this.#rpc('app_update_event', { p_token: token, p_id: id, p_event: ev }); }
   deleteEvent(token, id) { return this.#rpc('app_delete_event', { p_token: token, p_id: id }); }
   setDone(token, id, done) { return this.#rpc('app_set_done', { p_token: token, p_id: id, p_done: done }); }
 
-  listNotifications(token, meId) {
-    return this.#select(this.sb.from('notifications').select('*').eq('employee_id', meId)
-      .order('created_at', { ascending: false }).limit(60));
-  }
+  listNotifications(token) { return this.#rpc('app_list_notifications', { p_token: token }); }
   markRead(token, ids = null) { return this.#rpc('app_mark_read', { p_token: token, p_ids: ids }); }
   savePush(token, sub) { return this.#rpc('app_save_push', { p_token: token, p_sub: sub }); }
   removePush(endpoint) { return this.#rpc('app_remove_push', { p_endpoint: endpoint }); }
@@ -129,7 +124,7 @@ class LocalStore {
       db.notifications.push({
         id: crypto.randomUUID(), employee_id: t, event_id: kind === 'cancel' ? null : ev.id, kind,
         payload: {
-          title: ev.title, kind: ev.kind, starts_at: ev.starts_at, all_day: ev.all_day,
+          title: ev.title, kind: ev.kind, starts_at: ev.starts_at, all_day: ev.all_day, private: !!ev.is_private,
           ...(actor ? { actor_id: actor.id, actor_name: `${actor.first_name} ${actor.last_name}`.trim() } : {}),
           ...extra,
         },
@@ -235,7 +230,11 @@ class LocalStore {
     this.#write(db);
   }
 
-  async listEvents() { return this.#read().events; }
+  async listEvents(token) {
+    const db = this.#read();
+    const meId = db.sessions[token];
+    return db.events.filter(ev => canSee(ev, meId));
+  }
 
   async createEvent(token, input) {
     const db = this.#read();
@@ -245,7 +244,9 @@ class LocalStore {
       id: crypto.randomUUID(), title: clean(input.title), description: input.description || '',
       kind: input.kind || 'event', starts_at: new Date(input.starts_at).toISOString(),
       ends_at: input.ends_at ? new Date(input.ends_at).toISOString() : null, all_day: !!input.all_day,
-      location: input.location || '', color: input.color || '', everyone: !!input.everyone,
+      location: input.location || '', color: input.color || '',
+      is_private: !!input.is_private, everyone: !!input.everyone && !input.is_private,
+      calendar: input.calendar === 'com' ? 'com' : 'team', channels: uniq(input.channels || []),
       participants: uniq(input.participants || []),
       reminders: input.reminders ? uniq(input.reminders.map(Number)).sort((a, b) => b - a) : [1440, 60],
       reminders_from: nowIso(), done: false, created_by: me.id, created_at: nowIso(), updated_at: nowIso(),
@@ -269,6 +270,10 @@ class LocalStore {
     if ('ends_at' in input) ev.ends_at = input.ends_at ? new Date(input.ends_at).toISOString() : null;
     if ('all_day' in input) ev.all_day = !!input.all_day;
     if ('everyone' in input) ev.everyone = !!input.everyone;
+    if ('is_private' in input) ev.is_private = !!input.is_private;
+    if (ev.is_private) ev.everyone = false;
+    if ('calendar' in input) ev.calendar = input.calendar === 'com' ? 'com' : 'team';
+    if ('channels' in input) ev.channels = uniq(input.channels || []);
     if ('participants' in input) ev.participants = uniq(input.participants || []);
     if ('reminders' in input) ev.reminders = uniq((input.reminders || []).map(Number)).sort((a, b) => b - a);
     ev.updated_at = nowIso();

@@ -1,9 +1,9 @@
 // Registre du personnel : rôles, contacts, fiche de chaque membre
 import { CONFIG } from '../config.js';
 import { ctx } from '../ctx.js';
-import { esc, avatar, fullName, roleBadge, colorFor, download, copyText, plural } from '../util.js';
+import { esc, avatar, fullName, roleBadges, rolesOf, colorFor, download, copyText, plural } from '../util.js';
 import { icon } from '../icons.js';
-import { openModal, confirmDialog, toast, withBusy, emptyState } from '../ui.js';
+import { openModal, confirmDialog, toast, withBusy, emptyState, rolePicker, bindRolePicker } from '../ui.js';
 import { hashPassword } from '../store.js';
 import { evEnd, isInvolved, byStart, evColor, KINDS } from '../events.js';
 import { fmtDateFull, fmtWhen, relative, dayKey, DAY } from '../dates.js';
@@ -17,7 +17,7 @@ function filtered() {
   const { employees, team: s } = ctx.state;
   const q = s.q.trim().toLowerCase();
   return employees
-    .filter(e => !s.role || e.role === s.role)
+    .filter(e => !s.role || rolesOf(e).includes(s.role))
     .filter(e => !q || [fullName(e), e.username, e.role, e.email, e.phone, e.contract].join(' ').toLowerCase().includes(q))
     .sort((a, b) => a.first_name.localeCompare(b.first_name));
 }
@@ -45,7 +45,7 @@ function renderList() {
       <article class="person-card" data-emp="${e.id}" style="--i:${Math.min(i, 20)};--c:${colorFor(e.id)}">
         ${avatar(e, 'lg')}
         <h3>${esc(fullName(e))}${e.id === me.id ? ' <em>· moi</em>' : ''}</h3>
-        ${roleBadge(e.role)}
+        <div class="role-badges">${roleBadges(e)}</div>
         <div class="person-contacts">${contactLinks(e) || '<span class="muted">Pas de contact renseigné</span>'}</div>
       </article>`).join('')}</div>`;
   }
@@ -54,7 +54,7 @@ function renderList() {
     <tbody>${list.map((e, i) => `
       <tr data-emp="${e.id}" style="--i:${Math.min(i, 20)}">
         <td><div class="person-cell">${avatar(e)}<div><b>${esc(fullName(e))}${e.id === me.id ? ' <em>· moi</em>' : ''}${e.is_admin ? ` <span class="admin-tag" title="Administrateur">${icon('shield')}</span>` : ''}</b><small>@${esc(e.username)}</small></div></div></td>
-        <td>${roleBadge(e.role)}</td>
+        <td><div class="role-badges">${roleBadges(e)}</div></td>
         <td>${e.email ? `<span class="copy-cell"><a href="mailto:${esc(e.email)}" data-stop>${esc(e.email)}</a><button class="icon-btn icon-btn-xs" data-copy="${esc(e.email)}" aria-label="Copier l'e-mail">${icon('copy')}</button></span>` : '<span class="muted">—</span>'}</td>
         <td>${e.phone ? `<span class="copy-cell"><a href="tel:${esc(telHref(e.phone))}" data-stop>${esc(e.phone)}</a><button class="icon-btn icon-btn-xs" data-copy="${esc(e.phone)}" aria-label="Copier le numéro">${icon('copy')}</button></span>` : '<span class="muted">—</span>'}</td>
         <td>${esc(e.contract) || '<span class="muted">—</span>'}</td>
@@ -64,8 +64,9 @@ function renderList() {
 
 export function render() {
   const { employees, team: s } = ctx.state;
-  const roles = Object.entries(employees.reduce((acc, e) => ({ ...acc, [e.role]: (acc[e.role] || 0) + 1 }), {}))
-    .sort((a, b) => b[1] - a[1]);
+  const counts = {};
+  for (const e of employees) for (const r of rolesOf(e)) counts[r] = (counts[r] || 0) + 1;
+  const roles = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return `<div class="team">
     <div class="team-summary">
       <div class="summary-card"><b>${employees.length}</b><span>${employees.length > 1 ? 'membres' : 'membre'} dans l'équipe</span></div>
@@ -113,14 +114,13 @@ export function openEmployee(id) {
   const self = e.id === me.id;
   const now = Date.now();
   const upcoming = events.filter(ev => isInvolved(ev, e.id) && !ev.done && evEnd(ev) >= now).sort(byStart).slice(0, 5);
-  const roleList = [...new Set([...CONFIG.roles, ...ctx.state.employees.map(x => x.role)])];
+  const roleList = [...new Set([...CONFIG.roles, ...ctx.state.employees.flatMap(rolesOf)])];
 
   const admin = me.is_admin && !self ? `
     <section class="info-card admin-card">
       <h4>${icon('shield')} Administration</h4>
       <form class="admin-form">
-        <label class="field"><span>Poste attribué</span><input class="input" name="role" list="role-options" value="${esc(e.role)}" required>
-          <datalist id="role-options">${roleList.map(r => `<option value="${esc(r)}">`).join('')}</datalist></label>
+        <div class="field"><span>Poste(s) attribué(s)</span>${rolePicker(roleList, rolesOf(e))}</div>
         <div class="field-row">
           <label class="field"><span>Contrat</span><select class="input" name="contract"><option value="">—</option>
             ${CONFIG.contracts.map(c => `<option ${c === e.contract ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
@@ -142,7 +142,7 @@ export function openEmployee(id) {
         <button class="icon-btn drawer-close" data-close aria-label="Fermer">${icon('x')}</button>
         ${avatar(e, 'xl')}
         <h2>${esc(fullName(e))}</h2>
-        <div class="drawer-badges">${roleBadge(e.role)}${e.is_admin ? `<span class="admin-badge">${icon('shield')} Admin</span>` : ''}</div>
+        <div class="drawer-badges">${roleBadges(e)}${e.is_admin ? `<span class="admin-badge">${icon('shield')} Admin</span>` : ''}</div>
         <p class="muted">@${esc(e.username)}</p>
         <div class="contact-actions">
           ${e.phone ? `<a class="btn btn-secondary" href="tel:${esc(telHref(e.phone))}">${icon('phone')}<span>Appeler</span></a>` : ''}
@@ -186,11 +186,12 @@ export function openEmployee(id) {
         }
       });
       const form = box.querySelector('.admin-form');
+      const readRoles = form && bindRolePicker(form);
       form?.addEventListener('submit', async ev => {
         ev.preventDefault();
         const fd = new FormData(form);
-        const patch = { role: fd.get('role').trim(), contract: fd.get('contract'), start_date: fd.get('start_date'), is_admin: form.is_admin.checked };
-        if (!patch.role) return toast('Indique un poste.', { type: 'error' });
+        const patch = { role: readRoles().join(', '), contract: fd.get('contract'), start_date: fd.get('start_date'), is_admin: form.is_admin.checked };
+        if (!patch.role) return toast('Choisis au moins un poste.', { type: 'error' });
         const res = await withBusy(form.querySelector('[type=submit]'),
           () => ctx.run(() => ctx.store.updateEmployee(ctx.token, e.id, patch), { success: `Fiche de ${e.first_name} mise à jour.` }));
         if (res) close();

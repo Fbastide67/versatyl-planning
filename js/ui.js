@@ -119,6 +119,51 @@ export function skeletonRows(n = 5) {
     `<div class="skeleton-row" style="--i:${i}"><span class="sk sk-avatar"></span><span class="sk sk-line"></span><span class="sk sk-block"></span><span class="sk sk-block"></span><span class="sk sk-block"></span></div>`).join('');
 }
 
+// Champ mot de passe avec un petit œil pour afficher / masquer la saisie
+export function passwordInput(attrs) {
+  return `<span class="pwd"><input class="input" type="password" ${attrs}>
+    <button type="button" class="pwd-eye" data-eye aria-label="Afficher le mot de passe" aria-pressed="false">${icon('eye')}</button></span>`;
+}
+
+// Le bouton ne vole pas le focus du champ (le clavier reste ouvert sur mobile)
+document.addEventListener('pointerdown', e => { if (e.target.closest('[data-eye]')) e.preventDefault(); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-eye]');
+  if (!b) return;
+  e.preventDefault();
+  const input = b.parentElement.querySelector('input');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  b.innerHTML = icon(show ? 'eyeOff' : 'eye');
+  b.setAttribute('aria-pressed', show);
+  b.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+});
+
+// Choix de un ou plusieurs postes (puces à cocher + saisie libre)
+export function rolePicker(options, selected = []) {
+  const all = [...new Set([...options, ...selected])];
+  return `<div class="role-picker" data-role-picker>
+    <div class="chips">${all.map(r => `<button type="button" class="chip ${selected.includes(r) ? 'on' : ''}" data-role-opt="${esc(r)}" aria-pressed="${selected.includes(r)}">${esc(r)}</button>`).join('')}</div>
+    <input class="input" data-role-other placeholder="Autre poste ? Ex : Photographe, Community manager" autocomplete="off">
+  </div>`;
+}
+
+export function bindRolePicker(root) {
+  const picker = root.querySelector('[data-role-picker]');
+  picker.addEventListener('click', e => {
+    const b = e.target.closest('[data-role-opt]');
+    if (!b) return;
+    b.classList.toggle('on');
+    b.setAttribute('aria-pressed', b.classList.contains('on'));
+  });
+  // Postes cochés + postes saisis à la main (séparés par des virgules), sans doublon
+  return () => {
+    const chosen = [...picker.querySelectorAll('[data-role-opt].on')].map(b => b.dataset.roleOpt);
+    const typed = picker.querySelector('[data-role-other]').value.split(',').map(s => s.trim()).filter(Boolean);
+    return [...new Set([...chosen, ...typed])];
+  };
+}
+
 export function emptyState(title, text, action = '') {
   return `<div class="empty"><img src="assets/mascotte-256.png" alt="" class="empty-mascot"><h3>${esc(title)}</h3><p>${esc(text)}</p>${action}</div>`;
 }

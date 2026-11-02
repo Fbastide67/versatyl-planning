@@ -10,14 +10,14 @@ import { notificationText } from './messages.js';
 import { relative, fmtTime, DAY } from './dates.js';
 import { KINDS, evStart, evEnd, evColor, isMine, byStart, urgency } from './events.js';
 import { renderAuth } from './views/auth.js';
-import * as planning from './views/planning.js';
+import { teamPlanning, comPlanning } from './views/planning.js';
 import * as deadlines from './views/deadlines.js';
 import * as team from './views/team.js';
 import * as profile from './views/profile.js';
 import { openEventDetail, openEventForm } from './views/event-modal.js';
 
-const ROUTES = { planning, deadlines, equipe: team, profil: profile };
-const NAV = [['planning', 'calendar', 'Planning'], ['deadlines', 'flag', 'Deadlines'], ['equipe', 'users', 'Équipe'], ['profil', 'user', 'Profil']];
+const ROUTES = { planning: teamPlanning, com: comPlanning, deadlines, equipe: team, profil: profile };
+const NAV = [['planning', 'calendar', 'Planning'], ['com', 'megaphone', 'Plan de com'], ['deadlines', 'flag', 'Deadlines'], ['equipe', 'users', 'Équipe'], ['profil', 'user', 'Profil']];
 const TOKEN_KEY = 'vp_token';
 const bootStart = performance.now();
 const root = $('#root');
@@ -26,6 +26,10 @@ let stopLive = () => {};
 
 applyTheme();
 registerServiceWorker();
+
+// Pas de zoom sur mobile : iOS ignore « user-scalable=no », on bloque donc le pincement à la main
+for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 const storage = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -62,7 +66,7 @@ function splashError(message) {
 async function fetchAll() {
   const [employees, events, notifications] = await Promise.all([
     ctx.store.listEmployees(),
-    ctx.store.listEvents(),
+    ctx.store.listEvents(ctx.token),
     ctx.store.listNotifications(ctx.token, ctx.state.me.id),
   ]);
   return { employees, events, notifications };
@@ -70,6 +74,9 @@ async function fetchAll() {
 
 let inflight = null;
 let pending = false;
+// Signature des dernières données affichées : on ne redessine que si quelque chose a changé
+let lastSig = '';
+let lastDraw = 0;
 async function refresh() {
   if (!ctx.state.me) return;
   if (inflight) { pending = true; return inflight; }
@@ -84,6 +91,10 @@ async function refresh() {
       }
       Object.assign(ctx.state, data, { me });
       announce(data.notifications);
+      const sig = JSON.stringify(data);
+      // Sans changement, on redessine quand même de temps en temps (comptes à rebours, retards)
+      if (sig === lastSig && Date.now() - lastDraw < 120000) return;
+      lastSig = sig;
       rerender();
     } catch (err) {
       console.warn('Actualisation impossible', err);
@@ -270,7 +281,9 @@ async function onPushEnable(btn) {
 
 function onShellClick(e) {
   if (e.target.closest('[data-create]')) {
-    return openEventForm({ kind: parseHash().route === 'deadlines' ? 'deadline' : 'event' });
+    const { route } = parseHash();
+    if (route === 'com') return openEventForm({ calendar: 'com', kind: 'post' });
+    return openEventForm({ kind: route === 'deadlines' ? 'deadline' : 'event' });
   }
   if (e.target.closest('[data-logout]')) return logout();
   if (e.target.closest('[data-theme-toggle]')) { setTheme(isDark() ? 'light' : 'dark'); return rerender(); }
@@ -321,6 +334,7 @@ function rerender({ animate = false, dir = 0 } = {}) {
   const scroll = scroller ? [scroller.scrollLeft, scroller.scrollTop] : null;
 
   view.innerHTML = mod.render();
+  lastDraw = Date.now();
   const el = view.firstElementChild;
   mod.mount?.(el);
 
@@ -336,7 +350,8 @@ function rerender({ animate = false, dir = 0 } = {}) {
   if (animate) {
     el.classList.add('is-entering');
     el.style.setProperty('--dir', dir);
-    setTimeout(() => el.classList.remove('is-entering'), 1000);
+    // Retiré une fois toutes les entrées en cascade terminées (pas de coupure en plein mouvement)
+    setTimeout(() => el.classList.remove('is-entering'), 1100);
   }
   $('#page-title').textContent = mod.title;
   document.title = `${mod.title} · Versatyl Planning`;

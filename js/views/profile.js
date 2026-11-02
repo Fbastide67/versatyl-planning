@@ -1,9 +1,9 @@
 // Mon profil : infos personnelles, notifications, thème, mot de passe
 import { CONFIG } from '../config.js';
 import { ctx } from '../ctx.js';
-import { esc, avatar, fullName, roleBadge, colorFor } from '../util.js';
+import { esc, avatar, fullName, roleBadges, colorFor } from '../util.js';
 import { icon } from '../icons.js';
-import { toast, withBusy, confirmDialog } from '../ui.js';
+import { toast, withBusy, confirmDialog, passwordInput } from '../ui.js';
 import { hashPassword } from '../store.js';
 import { getTheme, setTheme } from '../theme.js';
 import { pushSupport, enablePush, systemNotify, needsHomeScreen } from '../notify.js';
@@ -30,7 +30,7 @@ export function render() {
       ${avatar(me, 'xl')}
       <div>
         <h2>${esc(fullName(me))}</h2>
-        <div class="drawer-badges">${roleBadge(me.role)}${me.is_admin ? `<span class="admin-badge">${icon('shield')} Admin</span>` : ''}</div>
+        <div class="drawer-badges">${roleBadges(me)}${me.is_admin ? `<span class="admin-badge">${icon('shield')} Admin</span>` : ''}</div>
         <p class="muted">@${esc(me.username)} · membre depuis le ${fmtDateFull(me.created_at)}</p>
       </div>
     </section>
@@ -43,7 +43,7 @@ export function render() {
             <label class="field"><span>Prénom</span><input class="input" name="first_name" value="${esc(me.first_name)}" required></label>
             <label class="field"><span>Nom</span><input class="input" name="last_name" value="${esc(me.last_name)}"></label>
           </div>
-          <label class="field"><span>Poste</span><input class="input" value="${esc(me.role)}" disabled>
+          <label class="field"><span>Poste(s)</span><input class="input" value="${esc(me.role)}" disabled>
             <small class="field-hint">${me.is_admin ? 'Modifiable depuis le registre du personnel.' : 'Ton poste est attribué par un·e administrateur·rice.'}</small></label>
           <div class="field-row">
             <label class="field"><span>E-mail</span><input class="input" type="email" name="email" value="${esc(me.email)}"></label>
@@ -80,8 +80,8 @@ export function render() {
         <section class="card">
           <h3>${icon('lock')} Mot de passe</h3>
           <form id="password-form" class="stack">
-            <label class="field"><span>Mot de passe actuel</span><input class="input" type="password" name="old" autocomplete="current-password" required></label>
-            <label class="field"><span>Nouveau mot de passe</span><input class="input" type="password" name="new" autocomplete="new-password" minlength="4" required></label>
+            <label class="field"><span>Mot de passe actuel</span>${passwordInput('name="old" autocomplete="current-password" required')}</label>
+            <label class="field"><span>Nouveau mot de passe</span>${passwordInput('name="new" autocomplete="new-password" minlength="4" required')}</label>
             <div class="row-end"><button class="btn btn-ghost" type="submit">Changer</button></div>
           </form>
         </section>

@@ -17,7 +17,10 @@ export const CONFIG = {
   // Adresse publique du site (utilisée dans les liens des notifications)
   siteUrl: 'https://fbastide67.github.io/versatyl-planning/',
 
-  // Postes proposés à l'inscription (on peut aussi en saisir un autre)
+  // Canaux du plan de com (une ligne chacun dans le planning « Plan de com »)
+  channels: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'YouTube', 'Newsletter', 'Site web', 'Presse'],
+
+  // Postes proposés à l'inscription (on peut en cocher plusieurs et en saisir d'autres)
   roles: [
     'Gérant·e', 'Manager', 'Direction artistique', 'Graphiste', 'Communication',
     'Commercial·e', 'Production', 'Logistique', 'Développeur·se', 'Stagiaire',

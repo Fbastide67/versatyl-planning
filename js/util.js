@@ -25,6 +25,11 @@ export function roleBadge(role) {
   return `<span class="role-badge" style="--c:${colorFor(role)}">${esc(role || '—')}</span>`;
 }
 
+// Une personne peut avoir plusieurs postes, enregistrés séparés par des virgules
+export const rolesOf = e => String(e?.role || '').split(',').map(r => r.trim()).filter(Boolean);
+export const mainRole = e => rolesOf(e)[0] || '';
+export const roleBadges = e => (rolesOf(e).map(roleBadge).join('') || roleBadge(''));
+
 export function debounce(fn, ms = 200) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };

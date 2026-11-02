@@ -1,7 +1,7 @@
 // Textes des notifications — partagés entre le site et l'envoi des mails (GitHub Actions)
 import { fmtWhen, offsetLabel } from './dates.js';
 
-const LABELS = { event: 'Événement', task: 'Tâche', deadline: 'Deadline' };
+const LABELS = { event: 'Événement', task: 'Tâche', deadline: 'Deadline', post: 'Publication' };
 
 export function notificationText(n, tz) {
   const p = n.payload || {};
@@ -23,6 +23,7 @@ export function notificationText(n, tz) {
       const soon = `dans ${offsetLabel(p.offset_min || 0)}`;
       if (p.kind === 'deadline') return { icon: 'flag', title: `Deadline ${t} ${soon}`, body: when };
       if (p.kind === 'task') return { icon: 'task', title: `Tâche ${t} à rendre ${soon}`, body: when };
+      if (p.kind === 'post') return { icon: 'megaphone', title: `Publication ${t} prévue ${soon}`, body: when };
       return { icon: 'clock', title: `${t} commence ${soon}`, body: when };
     }
     default:

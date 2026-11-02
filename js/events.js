@@ -4,7 +4,16 @@ export const KINDS = {
   event: { label: 'Événement', icon: 'calendar', color: '#7c3aed', reminders: [1440, 60] },
   task: { label: 'Tâche', icon: 'task', color: '#0891b2', reminders: [1440] },
   deadline: { label: 'Deadline', icon: 'flag', color: '#e11db5', reminders: [4320, 1440, 120] },
+  post: { label: 'Publication', icon: 'megaphone', color: '#ea580c', reminders: [1440, 60] },
 };
+
+// Deux plannings : celui de l'équipe et le plan de com (une ligne par canal)
+export const CALENDARS = {
+  team: { label: "Planning d'équipe", kinds: ['event', 'task', 'deadline'] },
+  com: { label: 'Plan de com', kinds: ['post', 'event', 'deadline', 'task'] },
+};
+export const evCalendar = ev => (ev.calendar === 'com' ? 'com' : 'team');
+export const doneLabel = ev => (ev.kind === 'post' ? 'Publié' : 'Terminé');
 
 export const REMINDER_OPTIONS = [
   [10080, '1 semaine'], [4320, '3 jours'], [1440, '1 jour'], [120, '2 heures'], [60, '1 heure'], [30, '30 min'],
@@ -37,6 +46,8 @@ export function involvedIds(ev, employees) {
 export const isInvolved = (ev, meId) =>
   ev.everyone || (ev.participants?.length ? ev.participants.includes(meId) : ev.created_by === meId);
 export const isMine = (ev, meId) => isInvolved(ev, meId) || ev.created_by === meId;
+// Élément privé : visible seulement par son créateur et les personnes concernées (même règle que la base)
+export const canSee = (ev, meId) => !ev.is_private || isMine(ev, meId);
 export const canEdit = (ev, me) => ev.created_by === me?.id;
 export const canToggle = (ev, me) => canEdit(ev, me) || isInvolved(ev, me?.id);
 

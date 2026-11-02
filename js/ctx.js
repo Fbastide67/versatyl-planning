@@ -8,6 +8,7 @@ export const ctx = {
     events: [],
     notifications: [],
     planning: { anchor: new Date(), view: window.innerWidth < 760 ? 'day' : 'week', mine: false, role: '' },
+    com: { anchor: new Date(), view: window.innerWidth < 760 ? 'day' : 'week', mine: false, channel: '' },
     deadlines: { tab: 'upcoming', mine: true },
     team: { q: '', role: '', layout: window.innerWidth < 760 ? 'cards' : 'table' },
   },

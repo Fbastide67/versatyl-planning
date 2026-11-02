@@ -33,7 +33,7 @@ create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text not null default '',
-  kind text not null default 'event' check (kind in ('event', 'task', 'deadline')),
+  kind text not null default 'event',
   starts_at timestamptz not null,
   ends_at timestamptz,
   all_day boolean not null default false,
@@ -49,6 +49,15 @@ create table if not exists public.events (
   updated_at timestamptz not null default now()
 );
 create index if not exists events_starts_at_idx on public.events (starts_at);
+
+-- Mise à jour : éléments privés, plan de com (canaux) et type « publication »
+alter table public.events add column if not exists is_private boolean not null default false;
+alter table public.events add column if not exists calendar text not null default 'team';
+alter table public.events add column if not exists channels text[] not null default '{}';
+alter table public.events drop constraint if exists events_kind_check;
+alter table public.events add constraint events_kind_check check (kind in ('event', 'task', 'deadline', 'post'));
+alter table public.events drop constraint if exists events_calendar_check;
+alter table public.events add constraint events_calendar_check check (calendar in ('team', 'com'));
 
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
@@ -75,7 +84,9 @@ create table if not exists public.push_subscriptions (
   created_at timestamptz not null default now()
 );
 
--- ---------- Accès : lecture libre, écritures uniquement via les fonctions app_* ----------
+-- ---------- Accès : écritures uniquement via les fonctions app_* ----------
+-- Le site lit le planning et les notifications via app_list_events / app_list_notifications.
+-- La lecture directe (utilisée pour le temps réel) n'expose jamais les éléments privés.
 
 alter table public.employees enable row level security;
 alter table public.sessions enable row level security;
@@ -89,9 +100,10 @@ revoke all on public.employees, public.sessions, public.events, public.notificat
 
 grant select on public.events, public.notifications to anon, authenticated;
 drop policy if exists "lecture events" on public.events;
-create policy "lecture events" on public.events for select using (true);
+create policy "lecture events" on public.events for select using (not is_private);
 drop policy if exists "lecture notifications" on public.notifications;
-create policy "lecture notifications" on public.notifications for select using (true);
+create policy "lecture notifications" on public.notifications for select
+  using (not coalesce((payload->>'private')::boolean, false));
 
 -- Annuaire public (sans les mots de passe)
 create or replace view public.employees_public as
@@ -145,6 +157,21 @@ returns uuid[] language sql stable security definer set search_path = public as 
   end;
 $$;
 
+-- Un élément privé n'est visible que par son créateur et les personnes concernées
+create or replace function public._can_see(e public.events, p_me uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select not e.is_private or e.created_by = p_me or p_me = any(_involved(e));
+$$;
+
+create or replace function public._texts(j jsonb)
+returns text[] language sql immutable as $$
+  select coalesce(array(
+    select distinct trim(x)
+    from jsonb_array_elements_text(case when jsonb_typeof(j) = 'array' then j else '[]'::jsonb end) x
+    where trim(x) <> ''
+  ), '{}');
+$$;
+
 create or replace function public._notify(p_ev public.events, p_kind text, p_actor public.employees,
                                          p_targets uuid[], p_extra jsonb default '{}')
 returns void language sql security definer set search_path = public as $$
@@ -154,6 +181,7 @@ returns void language sql security definer set search_path = public as $$
          p_kind,
          jsonb_build_object(
            'title', p_ev.title, 'kind', p_ev.kind, 'starts_at', p_ev.starts_at, 'all_day', p_ev.all_day,
+           'private', p_ev.is_private,
            'actor_id', p_actor.id, 'actor_name', trim(p_actor.first_name || ' ' || p_actor.last_name)
          ) || coalesce(p_extra, '{}')
   from unnest(p_targets) t
@@ -284,15 +312,27 @@ end $$;
 
 -- ---------- Événements / tâches / deadlines ---------------------------
 
+-- Planning visible par la personne connectée (les éléments privés des autres sont exclus)
+create or replace function public.app_list_events(p_token uuid)
+returns setof public.events language plpgsql stable security definer set search_path = public as $$
+declare v_me employees := _require(p_token);
+begin
+  return query
+    select * from events e
+    where e.starts_at >= now() - interval '365 days' and _can_see(e, v_me.id)
+    order by e.starts_at;
+end $$;
+
 create or replace function public.app_create_event(p_token uuid, p_event jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_me employees := _require(p_token); v events;
+declare v_me employees := _require(p_token); v events; v_private boolean;
 begin
   if coalesce(trim(p_event->>'title'), '') = '' then
     raise exception 'Le titre est obligatoire.';
   end if;
+  v_private := coalesce((p_event->>'is_private')::boolean, false);
   insert into events (title, description, kind, starts_at, ends_at, all_day, location, color,
-                      everyone, participants, reminders, created_by)
+                      everyone, participants, reminders, is_private, calendar, channels, created_by)
   values (
     trim(p_event->>'title'),
     coalesce(p_event->>'description', ''),
@@ -302,9 +342,12 @@ begin
     coalesce((p_event->>'all_day')::boolean, false),
     coalesce(p_event->>'location', ''),
     coalesce(p_event->>'color', ''),
-    coalesce((p_event->>'everyone')::boolean, false),
+    coalesce((p_event->>'everyone')::boolean, false) and not v_private,
     _uuids(p_event->'participants'),
     case when p_event ? 'reminders' then _ints(p_event->'reminders') else '{1440,60}' end,
+    v_private,
+    case when p_event->>'calendar' = 'com' then 'com' else 'team' end,
+    _texts(p_event->'channels'),
     v_me.id
   ) returning * into v;
   perform _notify(v, 'invite', v_me, _involved(v));
@@ -334,9 +377,17 @@ begin
     everyone     = case when p_event ? 'everyone' then coalesce((p_event->>'everyone')::boolean, everyone) else everyone end,
     participants = case when p_event ? 'participants' then _uuids(p_event->'participants') else participants end,
     reminders    = case when p_event ? 'reminders' then _ints(p_event->'reminders') else reminders end,
+    is_private   = case when p_event ? 'is_private' then coalesce((p_event->>'is_private')::boolean, is_private) else is_private end,
+    calendar     = case when p_event ? 'calendar' then (case when p_event->>'calendar' = 'com' then 'com' else 'team' end) else calendar end,
+    channels     = case when p_event ? 'channels' then _texts(p_event->'channels') else channels end,
     updated_at   = now()
   where id = p_id
   returning * into v;
+
+  -- Un élément privé ne peut pas concerner toute l'équipe
+  if v.is_private and v.everyone then
+    update events set everyone = false where id = p_id returning * into v;
+  end if;
 
   -- Nouvelle date ou nouveaux rappels : on reprogramme les rappels
   if v.starts_at is distinct from v_old.starts_at or v.reminders is distinct from v_old.reminders then
@@ -391,6 +442,17 @@ end $$;
 
 -- ---------- Notifications ---------------------------------------------
 
+create or replace function public.app_list_notifications(p_token uuid)
+returns setof public.notifications language plpgsql stable security definer set search_path = public as $$
+declare v_me employees := _require(p_token);
+begin
+  return query
+    select * from notifications n
+    where n.employee_id = v_me.id
+    order by n.created_at desc
+    limit 60;
+end $$;
+
 create or replace function public.app_mark_read(p_token uuid, p_ids uuid[] default null)
 returns void language plpgsql security definer set search_path = public as $$
 declare v_me employees := _require(p_token);
@@ -440,7 +502,7 @@ begin
     insert into notifications (employee_id, event_id, kind, payload)
     select u, e.id, 'reminder', jsonb_build_object(
       'title', e.title, 'kind', e.kind, 'starts_at', e.starts_at, 'all_day', e.all_day,
-      'offset_min', r.offset_min)
+      'private', e.is_private, 'offset_min', r.offset_min)
     from events e, unnest(_involved(e)) u
     where e.id = r.event_id and exists (select 1 from employees where id = u);
     v_count := v_count + 1;

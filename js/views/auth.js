@@ -4,12 +4,11 @@ import { ctx } from '../ctx.js';
 import { esc } from '../util.js';
 import { icon } from '../icons.js';
 import { hashPassword } from '../store.js';
-import { withBusy } from '../ui.js';
+import { withBusy, passwordInput, rolePicker, bindRolePicker } from '../ui.js';
 
 const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 export function renderAuth(root, { firstUser, onAuthed }) {
-  const roleOptions = CONFIG.roles.map(r => `<option>${esc(r)}</option>`).join('');
   const contractOptions = CONFIG.contracts.map(c => `<option>${esc(c)}</option>`).join('');
   root.innerHTML = `
   <div class="auth">
@@ -33,7 +32,7 @@ export function renderAuth(root, { firstUser, onAuthed }) {
           <label class="field"><span>Identifiant</span>
             <input class="input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
           <label class="field"><span>Mot de passe</span>
-            <input class="input" name="password" type="password" autocomplete="current-password" required></label>
+            ${passwordInput('name="password" autocomplete="current-password" required')}</label>
           <p class="form-error" hidden></p>
           <button class="btn btn-primary btn-lg btn-block" type="submit">Se connecter</button>
           <p class="auth-hint">Première connexion ? <a href="#" data-tab="signup">Crée ton compte</a> en une minute.</p>
@@ -50,14 +49,9 @@ export function renderAuth(root, { firstUser, onAuthed }) {
             <input class="input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
             <small class="field-hint">Il te servira à te connecter (lettres, chiffres, . _ -).</small></label>
           <label class="field"><span>Mot de passe *</span>
-            <input class="input" name="password" type="password" autocomplete="new-password" minlength="4" required></label>
-          <div class="field-row">
-            <label class="field"><span>Poste *</span>
-              <select class="input" name="role_choice" required>
-                <option value="" disabled selected>Choisir…</option>${roleOptions}<option value="__other">Autre…</option>
-              </select></label>
-            <label class="field" data-other hidden><span>Ton poste</span><input class="input" name="role_other" placeholder="Ex : Photographe"></label>
-          </div>
+            ${passwordInput('name="password" autocomplete="new-password" minlength="4" required')}</label>
+          <div class="field"><span>Poste(s) * <em class="field-note">— coche tous ceux qui te correspondent</em></span>
+            ${rolePicker(CONFIG.roles)}</div>
           <div class="field-row">
             <label class="field"><span>Téléphone</span><input class="input" name="phone" type="tel" autocomplete="tel"></label>
             <label class="field"><span>E-mail</span><input class="input" name="email" type="email" autocomplete="email"></label>
@@ -120,23 +114,19 @@ export function renderAuth(root, { firstUser, onAuthed }) {
   };
   signup.first_name.addEventListener('input', suggest);
   signup.last_name.addEventListener('input', suggest);
-  signup.role_choice.addEventListener('change', () => {
-    const other = signup.role_choice.value === '__other';
-    signup.querySelector('[data-other]').hidden = !other;
-    if (other) signup.role_other.focus();
-  });
+  const readRoles = bindRolePicker(signup);
 
   signup.addEventListener('submit', async e => {
     e.preventDefault();
     const f = new FormData(signup);
     const username = f.get('username').trim().toLowerCase();
     const password = f.get('password');
-    const role = f.get('role_choice') === '__other' ? f.get('role_other').trim() : f.get('role_choice');
+    const role = readRoles().join(', ');
     const email = f.get('email').trim();
     if (!f.get('first_name').trim()) return fail(signup, 'Indique ton prénom.');
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) return fail(signup, "L'identifiant doit faire 3 à 32 caractères (lettres, chiffres, . _ -).");
     if (password.length < 4) return fail(signup, 'Le mot de passe doit faire au moins 4 caractères.');
-    if (!role) return fail(signup, 'Choisis ton poste.');
+    if (!role) return fail(signup, 'Choisis au moins un poste.');
     if (email && !/^\S+@\S+\.\S+$/.test(email)) return fail(signup, 'Cette adresse e-mail ne semble pas valide.');
     fail(signup, '');
     await withBusy(signup.querySelector('[type=submit]'), async () => {

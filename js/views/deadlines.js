@@ -40,13 +40,13 @@ function item(ev, i) {
       title="${can ? (ev.done ? 'Rouvrir' : 'Marquer comme terminé') : 'Réservé aux personnes concernées'}" aria-label="${ev.done ? 'Rouvrir' : 'Marquer comme terminé'}">${icon('check')}</button>
     <div class="dl-main">
       <div class="dl-top"><span class="kind-mini" style="--c:${k.color}">${icon(k.icon)}${k.label}</span>
-        <h3>${esc(ev.title)}</h3></div>
+        <h3>${esc(ev.title)}</h3>${ev.is_private ? `<span class="dl-lock" title="Privé">${icon('lock')}</span>` : ''}</div>
       <div class="dl-meta">${icon('clock')}<span>${esc(fmtWhen(ev))} · ${relative(ev.starts_at)}</span>
         <span class="dl-by">par ${esc(fullName(ctx.emp(ev.created_by)))}</span></div>
       <div class="dl-progress" title="Temps écoulé"><span style="width:${pct}%"></span></div>
     </div>
     <div class="dl-side">
-      <span class="countdown u-${u}">${ev.done ? 'Fait' : countdown(ev.starts_at)}</span>
+      <span class="countdown u-${u}">${ev.done ? (ev.kind === 'post' ? 'Publié' : 'Fait') : countdown(ev.starts_at)}</span>
       <div class="avatars">${people}${extra > 0 ? `<span class="avatar avatar-sm avatar-more">+${extra}</span>` : ''}</div>
     </div>
   </article>`;

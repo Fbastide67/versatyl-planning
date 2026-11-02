@@ -6,12 +6,14 @@ Planning d'équipe façon Skello, aux couleurs de la DA Versatyl : planning par 
 
 ## Fonctionnalités
 
-- **Comptes** : à la première visite, chacun crée son compte (identifiant + mot de passe) puis se connecte simplement avec son identifiant. Le premier inscrit devient administrateur.
+- **Comptes** : à la première visite, chacun crée son compte (identifiant + mot de passe, avec un petit œil pour vérifier sa saisie) et coche **un ou plusieurs postes**, puis se connecte simplement avec son identifiant. Le premier inscrit devient administrateur.
 - **Planning** (jour / semaine / mois) : une ligne par personne et une ligne « Toute l'équipe ». On clique sur une case pour ajouter un élément.
+- **Plan de com** : un deuxième planning, avec une ligne par canal (Instagram, TikTok, newsletter… liste modifiable dans `js/config.js`, `channels`) et un type **Publication** que l'on coche « Publié ».
 - **Événements, tâches, deadlines** : chacun peut en créer librement. On ne peut **modifier ou supprimer que les siens**. Les personnes concernées peuvent cocher une tâche ou une deadline comme terminée.
+- **Éléments privés** : en cochant « Privé », un élément n'est visible que par la personne qui l'a créé et les personnes concernées (filtré par la base de données, pas seulement à l'affichage).
 - **Rappels** : à l'approche d'une échéance (1 semaine, 3 jours, 1 jour, 2 h, 1 h ou 30 min avant, au choix), les personnes concernées reçoivent une **notification sur leur téléphone ou leur ordinateur**, ainsi que dans le site (cloche + pop-up). Elles sont aussi prévenues quand on les ajoute à un élément, quand l'horaire change ou quand il est annulé.
 - **Registre du personnel** : poste attribué, contrat, date d'arrivée, téléphone et e-mail de chacun (copie, appel, mail, fiche contact .vcf), export Excel (CSV). Les administrateurs attribuent les postes et peuvent réinitialiser un mot de passe.
-- Thème clair / sombre, version mobile installable sur l'écran d'accueil, animations reprises de la DA.
+- Thème clair / sombre, version mobile installable sur l'écran d'accueil (zoom désactivé pour une utilisation façon appli), animations reprises de la DA.
 
 ## Activer les notifications (chaque membre de l'équipe)
 
