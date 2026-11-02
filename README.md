@@ -47,7 +47,7 @@ Les rappels sont envoyés par une tâche automatique GitHub Actions qui tourne t
 
 Pour un autre fournisseur que Gmail, ajoute aussi `SMTP_HOST`, `SMTP_PORT` (et éventuellement `MAIL_FROM`).
 
-Pour vérifier : onglet **Actions** > **Rappels deadlines** > **Run workflow**, puis ouvre l'exécution pour lire le journal.
+Pour vérifier : onglet **Actions** > **Rappels deadlines** > **Run workflow**, coche **Envoyer un e-mail de test à l'adresse d'envoi**, puis **Run workflow**. Un e-mail de test arrive dans la boîte Gmail d'envoi en moins d'une minute.
 
 ### 3. Notifications sur téléphone / ordinateur
 

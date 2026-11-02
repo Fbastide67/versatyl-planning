@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+    inputs:
+      test_email:
+        description: "Envoyer un e-mail de test à l'adresse d'envoi"
+        type: boolean
+        default: false
 
 concurrency:
   group: reminders
@@ -28,3 +33,4 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          TEST_EMAIL: ${{ inputs.test_email }}

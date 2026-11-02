@@ -57,9 +57,9 @@ console.log(`${queued} rappel(s) mis en file`);
 // 2. Notifications pas encore envoyées
 const pending = await rpc('app_pending_deliveries');
 console.log(`${pending.length} notification(s) à envoyer`);
-if (!pending.length) process.exit(0);
 
 let mailer = null;
+const from = env.MAIL_FROM || `Versatyl Planning <${env.SMTP_USER}>`;
 if (env.SMTP_USER && env.SMTP_PASS) {
   const nodemailer = (await import('nodemailer')).default;
   const port = Number(env.SMTP_PORT || 465);
@@ -70,6 +70,20 @@ if (env.SMTP_USER && env.SMTP_PASS) {
 } else {
   console.log('SMTP_USER / SMTP_PASS absents : pas d’e-mails (voir README).');
 }
+
+// Lancement manuel avec « test_email » : un e-mail de test envoyé à l'adresse d'envoi elle-même
+if (env.TEST_EMAIL === 'true') {
+  if (!mailer) throw new Error('Test impossible : ajoute les secrets SMTP_USER et SMTP_PASS.');
+  await mailer.sendMail({
+    from, to: env.SMTP_USER, subject: 'Test Versatyl Planning : les e-mails fonctionnent',
+    text: `Les rappels par e-mail de Versatyl Planning sont bien configurés.\n${CONFIG.siteUrl}`,
+    html: emailHtml('toi', [{ n: {}, title: 'Les rappels par e-mail fonctionnent !',
+      body: 'Cet e-mail de test confirme que les deadlines seront bien envoyées par mail à l’équipe.' }]),
+  });
+  console.log('E-mail de test envoyé à l’adresse d’envoi.');
+}
+
+if (!pending.length) process.exit(0);
 
 let webpush = null;
 if (env.VAPID_PRIVATE_KEY && CONFIG.vapidPublicKey) {
@@ -93,13 +107,13 @@ for (const items of byPerson.values()) {
   try {
     if (mailer && who.email && who.email_notifications) {
       await mailer.sendMail({
-        from: env.MAIL_FROM || `Versatyl Planning <${env.SMTP_USER}>`,
+        from,
         to: who.email,
         subject: items.length === 1 ? items[0].title : `${items.length} nouveautés sur ton planning Versatyl`,
         text: items.map(i => `${i.title}\n${i.body}\n${linkFor(i.n)}`).join('\n\n'),
         html: emailHtml(who.first_name, items),
       });
-      console.log(`E-mail envoyé à ${who.first_name} (${items.length})`);
+      console.log(`E-mail envoyé (${items.length} élément(s))`);
     }
     if (webpush) {
       for (const { n, title, body } of items) {
@@ -115,7 +129,7 @@ for (const items of byPerson.values()) {
     }
     delivered.push(...items.map(i => i.n.id));
   } catch (err) {
-    console.error(`Échec de l'envoi à ${who.first_name} :`, err.message);
+    console.error("Échec d'un envoi :", err.message);
   }
 }
 
