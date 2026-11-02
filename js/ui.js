@@ -50,11 +50,17 @@ export function openModal({ html, variant = 'modal', className = '', onMount, on
   const box = root.firstElementChild;
   let closed = false;
 
+  // La fenêtre suit la zone réellement visible : sur iPhone, le clavier ne la pousse plus sous la Dynamic Island
+  const vv = window.visualViewport;
+  const fit = () => { root.style.top = `${vv.offsetTop}px`; root.style.height = `${vv.height}px`; };
+  if (vv) { fit(); vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
+
   const onKey = e => { if (e.key === 'Escape' && root === $$('.overlay').at(-1)) close(); };
   function close() {
     if (closed) return;
     closed = true;
     document.removeEventListener('keydown', onKey);
+    if (vv) { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }
     root.classList.add('is-leaving');
     setTimeout(() => {
       root.remove();

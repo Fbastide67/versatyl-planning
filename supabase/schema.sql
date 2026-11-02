@@ -23,6 +23,10 @@ create table if not exists public.employees (
 );
 create unique index if not exists employees_username_key on public.employees (lower(username));
 
+-- Mise à jour : photo de profil (petite image JPEG encodée en base64)
+alter table public.employees add column if not exists photo text not null default '';
+alter table public.employees add column if not exists photo_updated_at timestamptz;
+
 create table if not exists public.sessions (
   token uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees(id) on delete cascade,
@@ -108,9 +112,14 @@ create policy "lecture notifications" on public.notifications for select
 -- Annuaire public (sans les mots de passe)
 create or replace view public.employees_public as
   select id, username, first_name, last_name, role, email, phone, contract, start_date,
-         is_admin, email_notifications, created_at
+         is_admin, email_notifications, created_at, photo_updated_at
   from public.employees;
 grant select on public.employees_public to anon, authenticated;
+
+-- Photos lues à part par le site, seulement quand photo_updated_at change
+create or replace view public.employee_photos as
+  select id, photo from public.employees where photo <> '';
+grant select on public.employee_photos to anon, authenticated;
 
 -- ---------- Fonctions internes ----------------------------------------
 
@@ -250,7 +259,13 @@ begin
   if p_id <> v_me.id and not v_me.is_admin then
     raise exception 'Tu ne peux modifier que ton propre profil.';
   end if;
+  if coalesce(p_patch->>'photo', '') <> ''
+     and (p_patch->>'photo' !~ '^data:image/(jpeg|png|webp);base64,' or length(p_patch->>'photo') > 300000) then
+    raise exception 'Photo invalide ou trop lourde.';
+  end if;
   update employees set
+    photo      = case when p_patch ? 'photo' then coalesce(p_patch->>'photo', '') else photo end,
+    photo_updated_at = case when p_patch ? 'photo' then now() else photo_updated_at end,
     first_name = case when p_patch ? 'first_name' then coalesce(nullif(trim(p_patch->>'first_name'), ''), first_name) else first_name end,
     last_name  = case when p_patch ? 'last_name'  then coalesce(trim(p_patch->>'last_name'), '') else last_name end,
     email      = case when p_patch ? 'email'      then coalesce(trim(p_patch->>'email'), '') else email end,

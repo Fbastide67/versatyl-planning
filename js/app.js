@@ -17,7 +17,8 @@ import * as profile from './views/profile.js';
 import { openEventDetail, openEventForm } from './views/event-modal.js';
 
 const ROUTES = { planning: teamPlanning, com: comPlanning, deadlines, equipe: team, profil: profile };
-const NAV = [['planning', 'calendar', 'Planning'], ['com', 'megaphone', 'Plan de com'], ['deadlines', 'flag', 'Deadlines'], ['equipe', 'users', 'Équipe'], ['profil', 'user', 'Profil']];
+// Le profil s'ouvre depuis la photo en haut à droite
+const NAV = [['planning', 'calendar', 'Planning'], ['com', 'megaphone', 'Plan de com'], ['deadlines', 'flag', 'Deadlines'], ['equipe', 'users', 'Équipe']];
 const TOKEN_KEY = 'vp_token';
 const bootStart = performance.now();
 const root = $('#root');
@@ -230,7 +231,7 @@ function showApp() {
           <div class="bell-wrap">
             <button class="icon-btn bell" data-bell aria-label="Notifications">${icon('bell')}<span class="bell-badge" hidden></span></button>
           </div>
-          <a class="topbar-me" href="#/profil" data-me-avatar aria-label="Mon profil"></a>
+          <a class="topbar-me" href="#/profil" data-me-avatar data-route="profil" aria-label="Mon profil"></a>
         </div>
       </header>
       ${local && !sessionStorage.getItem('vp_banner') ? `<div class="demo-banner">${icon('alert')}<span><b>Mode démo</b> — les comptes et le planning restent dans ce navigateur. Branche Supabase (voir le README) pour partager le planning avec toute l'équipe.</span><button class="icon-btn icon-btn-xs" data-banner-close aria-label="Masquer">${icon('x')}</button></div>` : ''}
@@ -238,7 +239,7 @@ function showApp() {
       <main id="view" class="view"><div class="view-loading">${skeletonRows(6)}</div></main>
     </div>
     <nav class="tabbar">
-      ${navLinks('tab-link').replace('<a href="#/equipe"', `<button class="tab-create" data-create aria-label="Ajouter">${icon('plus')}</button><a href="#/equipe"`)}
+      ${navLinks('tab-link').replace('<a href="#/deadlines"', `<button class="tab-create" data-create aria-label="Ajouter">${icon('plus')}</button><a href="#/deadlines"`)}
     </nav>
   </div>`;
 

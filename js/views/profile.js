@@ -1,7 +1,7 @@
 // Mon profil : infos personnelles, notifications, thème, mot de passe
 import { CONFIG } from '../config.js';
 import { ctx } from '../ctx.js';
-import { esc, avatar, fullName, roleBadges, colorFor } from '../util.js';
+import { esc, avatar, fullName, roleBadges, colorFor, photoOf, squarePhoto } from '../util.js';
 import { icon } from '../icons.js';
 import { toast, withBusy, confirmDialog, passwordInput } from '../ui.js';
 import { hashPassword } from '../store.js';
@@ -27,11 +27,19 @@ export function render() {
   const theme = getTheme();
   return `<div class="profile">
     <section class="profile-hero" style="--c:${colorFor(me.id)}">
-      ${avatar(me, 'xl')}
+      <label class="photo-edit" title="Changer ma photo">
+        ${avatar(me, 'xl')}
+        <span class="photo-badge">${icon('camera')}</span>
+        <input type="file" accept="image/*" id="photo-input" aria-label="Changer ma photo de profil">
+      </label>
       <div>
         <h2>${esc(fullName(me))}</h2>
         <div class="drawer-badges">${roleBadges(me)}${me.is_admin ? `<span class="admin-badge">${icon('shield')} Admin</span>` : ''}</div>
         <p class="muted">@${esc(me.username)} · membre depuis le ${fmtDateFull(me.created_at)}</p>
+        <div class="photo-actions">
+          <label class="btn btn-secondary btn-sm" for="photo-input">${icon('camera')}<span>${photoOf(me) ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
+          ${photoOf(me) ? `<button type="button" class="btn btn-ghost btn-sm" id="photo-remove">Retirer</button>` : ''}
+        </div>
       </div>
     </section>
 
@@ -112,6 +120,20 @@ export function mount(el) {
     await withBusy(form.querySelector('[type=submit]'),
       () => ctx.run(() => ctx.store.updateEmployee(ctx.token, me.id, patch), { success: 'Profil mis à jour.' }));
   });
+
+  const hero = el.querySelector('.profile-hero');
+  const savePhoto = (photo, success) => withBusy(hero.querySelector('.photo-actions .btn'),
+    () => ctx.run(() => ctx.store.updateEmployee(ctx.token, me.id, { photo }), { success }));
+  el.querySelector('#photo-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let photo;
+    try { photo = await squarePhoto(file); } catch (err) { return toast(err.message, { type: 'error' }); }
+    hero.querySelector('.avatar').innerHTML = `<img src="${photo}" alt="">`;
+    await savePhoto(photo, 'Photo de profil mise à jour.');
+  });
+  el.querySelector('#photo-remove')?.addEventListener('click', () => savePhoto('', 'Photo retirée.'));
 
   el.querySelector('#push-enable')?.addEventListener('click', async e => {
     await withBusy(e.currentTarget, async () => {

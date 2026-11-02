@@ -54,8 +54,24 @@ class SupabaseStore {
   session(token) { return this.#rpc('app_session', { p_token: token }); }
   logout(token) { return this.#rpc('app_logout', { p_token: token }); }
 
-  listEmployees() { return this.#select(this.sb.from('employees_public').select('*').order('first_name')); }
-  updateEmployee(token, id, patch) { return this.#rpc('app_update_employee', { p_token: token, p_id: id, p_patch: patch }); }
+  // Photos de profil déjà téléchargées : id → { at, photo }
+  #photos = new Map();
+
+  async listEmployees() {
+    const rows = await this.#select(this.sb.from('employees_public').select('*').order('first_name'));
+    // Les photos sont lues à part, uniquement quand elles ont changé (l'annuaire est relu toutes les 30 s)
+    const stale = rows.filter(e => e.photo_updated_at && this.#photos.get(e.id)?.at !== e.photo_updated_at);
+    if (stale.length) {
+      const photos = await this.#select(this.sb.from('employee_photos').select('id, photo').in('id', stale.map(e => e.id)));
+      for (const e of stale) this.#photos.set(e.id, { at: e.photo_updated_at, photo: photos.find(p => p.id === e.id)?.photo || '' });
+    }
+    return rows.map(e => ({ ...e, photo: e.photo_updated_at ? this.#photos.get(e.id)?.photo || '' : '' }));
+  }
+  async updateEmployee(token, id, patch) {
+    const res = await this.#rpc('app_update_employee', { p_token: token, p_id: id, p_patch: patch });
+    if ('photo' in patch && !('photo' in res)) throw new Error("La base n'est pas à jour : relance supabase/schema.sql dans Supabase.");
+    return res;
+  }
   changePassword(token, oldHash, newHash) { return this.#rpc('app_change_password', { p_token: token, p_old_hash: oldHash, p_new_hash: newHash }); }
   adminSetPassword(token, id, hash) { return this.#rpc('app_admin_set_password', { p_token: token, p_id: id, p_new_hash: hash }); }
   deleteEmployee(token, id) { return this.#rpc('app_delete_employee', { p_token: token, p_id: id }); }
@@ -191,6 +207,12 @@ class LocalStore {
     if ('first_name' in patch && clean(patch.first_name)) e.first_name = clean(patch.first_name);
     if ('start_date' in patch) e.start_date = patch.start_date || null;
     if ('email_notifications' in patch) e.email_notifications = !!patch.email_notifications;
+    if ('photo' in patch) {
+      const photo = String(patch.photo || '');
+      if (photo && (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) || photo.length > 300000)) throw new Error('Photo invalide ou trop lourde.');
+      e.photo = photo;
+      e.photo_updated_at = nowIso();
+    }
     if (me.is_admin && 'role' in patch && clean(patch.role)) e.role = clean(patch.role);
     if (me.is_admin && 'is_admin' in patch && id !== me.id) e.is_admin = !!patch.is_admin;
     this.#write(db);

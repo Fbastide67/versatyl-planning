@@ -17,8 +17,32 @@ export function colorFor(key) {
 export const fullName = e => (e ? `${e.first_name} ${e.last_name}`.trim() : 'Ancien membre');
 export const initials = e => ((e?.first_name?.[0] || '') + (e?.last_name?.[0] || '')).toUpperCase() || '?';
 
+// Photo de profil : une petite image encodée dans la fiche (data:image/…)
+export const photoOf = e => (/^data:image\/(jpeg|png|webp);base64,/.test(e?.photo || '') ? e.photo : '');
+
 export function avatar(e, size = 'md') {
-  return `<span class="avatar avatar-${size}" style="--c:${colorFor(e?.id || e?.username)}" title="${esc(fullName(e))}">${esc(initials(e))}</span>`;
+  const photo = photoOf(e);
+  return `<span class="avatar avatar-${size}" style="--c:${colorFor(e?.id || e?.username)}" title="${esc(fullName(e))}">${photo ? `<img src="${esc(photo)}" alt="" decoding="async">` : esc(initials(e))}</span>`;
+}
+
+// Recadre l'image au carré et la réduit (une quinzaine de Ko) avant de l'enregistrer
+export async function squarePhoto(file, size = 192) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch { throw new Error('Image illisible : choisis une photo JPEG ou PNG.'); }
+    const s = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, size, size);
+    g.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export function roleBadge(role) {
