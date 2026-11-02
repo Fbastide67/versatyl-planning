@@ -59,10 +59,10 @@ export function renderAuth(root, { firstUser, onAuthed }) {
             <label class="field" data-other hidden><span>Ton poste</span><input class="input" name="role_other" placeholder="Ex : Photographe"></label>
           </div>
           <div class="field-row">
-            <label class="field"><span>E-mail *</span><input class="input" name="email" type="email" autocomplete="email" required>
-              <small class="field-hint">Pour recevoir les rappels de deadlines.</small></label>
             <label class="field"><span>Téléphone</span><input class="input" name="phone" type="tel" autocomplete="tel"></label>
+            <label class="field"><span>E-mail</span><input class="input" name="email" type="email" autocomplete="email"></label>
           </div>
+          <small class="field-hint">Ton téléphone et ton e-mail sont visibles par l'équipe dans le registre.</small>
           <div class="field-row">
             <label class="field"><span>Contrat</span><select class="input" name="contract"><option value="">—</option>${contractOptions}</select></label>
             <label class="field"><span>Date d'arrivée</span><input class="input" name="start_date" type="date"></label>
@@ -137,7 +137,7 @@ export function renderAuth(root, { firstUser, onAuthed }) {
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) return fail(signup, "L'identifiant doit faire 3 à 32 caractères (lettres, chiffres, . _ -).");
     if (password.length < 4) return fail(signup, 'Le mot de passe doit faire au moins 4 caractères.');
     if (!role) return fail(signup, 'Choisis ton poste.');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return fail(signup, 'Indique une adresse e-mail valide.');
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) return fail(signup, 'Cette adresse e-mail ne semble pas valide.');
     fail(signup, '');
     await withBusy(signup.querySelector('[type=submit]'), async () => {
       try {

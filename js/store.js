@@ -75,6 +75,7 @@ class SupabaseStore {
   }
   markRead(token, ids = null) { return this.#rpc('app_mark_read', { p_token: token, p_ids: ids }); }
   savePush(token, sub) { return this.#rpc('app_save_push', { p_token: token, p_sub: sub }); }
+  removePush(endpoint) { return this.#rpc('app_remove_push', { p_endpoint: endpoint }); }
   queueReminders() { return this.#rpc('app_queue_reminders'); }
 
   subscribe(cb) {
@@ -330,6 +331,7 @@ class LocalStore {
   }
 
   async savePush() { /* Les notifications push serveur nécessitent Supabase */ }
+  async removePush() { /* idem */ }
 
   async queueReminders() {
     const db = this.#read();

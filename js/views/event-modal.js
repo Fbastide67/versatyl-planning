@@ -134,7 +134,7 @@ export function openEventForm(init = {}) {
 
         <div class="field"><span>Rappels</span>
           <div class="chips">${REMINDER_OPTIONS.map(([m, label]) => `<button type="button" class="chip ${f.reminders.has(m) ? 'on' : ''}" data-rem="${m}">${label}</button>`).join('')}</div>
-          <small class="field-hint">Les personnes concernées sont prévenues par notification et par e-mail.</small>
+          <small class="field-hint">Les personnes concernées reçoivent une notification sur leur téléphone.</small>
         </div>
 
         <details class="more" ${init.location || init.description || init.color ? 'open' : ''}>

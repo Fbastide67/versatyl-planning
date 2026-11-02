@@ -14,7 +14,7 @@ export const CONFIG = {
   // Clé publique des notifications push (la clé privée est un secret GitHub)
   vapidPublicKey: 'BBwwklro244TvQxe_OuYXO1XkTpdvuM9tpaRDRilGWNexE-xS4zWkWQsPXFXO5mXEYJ0ZqNZ7BzW4m3lTXFnLMI',
 
-  // Adresse publique du site (utilisée dans les mails de rappel)
+  // Adresse publique du site (utilisée dans les liens des notifications)
   siteUrl: 'https://fbastide67.github.io/versatyl-planning/',
 
   // Postes proposés à l'inscription (on peut aussi en saisir un autre)

@@ -34,6 +34,24 @@ export async function enablePush(store, token) {
   return 'push';
 }
 
+// iPhone / iPad hors application installée : les notifications n'y sont pas disponibles
+export function needsHomeScreen() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone;
+}
+
+// Si les notifications sont déjà autorisées, on (ré)enregistre l'appareil pour la personne connectée
+export async function syncPush(store, token) {
+  if (pushSupport() === 'granted') await enablePush(store, token).catch(() => {});
+}
+
+// À la déconnexion, l'appareil ne reçoit plus les notifications de ce compte
+export async function disablePush(store) {
+  try {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (sub) await store.removePush(sub.endpoint);
+  } catch { /* rien à retirer */ }
+}
+
 // Affiche une notification système (même « tag » que le push serveur pour éviter les doublons)
 export async function systemNotify(n) {
   if (pushSupport() !== 'granted') return;

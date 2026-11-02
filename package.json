@@ -7,7 +7,6 @@
     "reminders": "node scripts/reminders.mjs"
   },
   "dependencies": {
-    "nodemailer": "6.9.16",
     "web-push": "3.6.7"
   }
 }

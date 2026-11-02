@@ -368,6 +368,14 @@ select.input { padding-right: 8px; }
   animation: fadeUp .5s var(--ease);
 }
 .demo-banner > .i { color: var(--warning); }
+.push-banner {
+  margin: 14px 28px 0; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 14px; border-radius: 14px; font-size: 13px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 14%, var(--surface)), color-mix(in srgb, var(--accent) 10%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent); animation: fadeUp .5s var(--ease);
+}
+.push-banner > .i { color: var(--primary); animation: wiggle 1.2s 1s ease-in-out; transform-origin: 50% 10%; }
+.push-banner span { flex: 1; }
+.demo-banner span, .push-banner span { min-width: 0; }
 .demo-banner span { flex: 1; }
 .tabbar { display: none; }
 
@@ -877,7 +885,8 @@ tr:hover .copy-cell .icon-btn, .copy-cell .icon-btn:focus-visible { opacity: 1; 
   .topbar-brand { display: block; }
   .topbar h1 { font-size: 16px; }
   .view { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
-  .demo-banner { margin: 10px 14px 0; }
+  .demo-banner, .push-banner { margin: 10px 14px 0; }
+  .push-banner { flex-wrap: wrap; }
   .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; justify-content: space-around; align-items: center;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--sidebar-bg) 94%, transparent);
@@ -902,7 +911,7 @@ tr:hover .copy-cell .icon-btn, .copy-cell .icon-btn:focus-visible { opacity: 1; 
   .legend { display: none; }
   .g-scroll { max-height: none; }
   .grid { --name-w: 132px; --col-min: 118px; }
-  .grid[data-mode="day"] { --col-min: calc(100vw - 32px - 132px); }
+  .grid[data-mode="day"] { --col-min: 160px; }
   .g-name { padding: 8px; gap: 8px; }
   .g-name .avatar, .team-dot { --s: 28px; width: 28px; height: 28px; }
   .g-count { display: none; }

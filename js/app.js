@@ -5,7 +5,7 @@ import { $, $$, esc, avatar, debounce } from './util.js';
 import { icon } from './icons.js';
 import { toast, spikeLoader, skeletonRows } from './ui.js';
 import { applyTheme, setTheme, isDark } from './theme.js';
-import { registerServiceWorker, systemNotify } from './notify.js';
+import { registerServiceWorker, systemNotify, pushSupport, enablePush, syncPush, disablePush, needsHomeScreen } from './notify.js';
 import { notificationText } from './messages.js';
 import { relative, fmtTime, DAY } from './dates.js';
 import { KINDS, evStart, evEnd, evColor, isMine, byStart, urgency } from './events.js';
@@ -175,6 +175,7 @@ async function welcome(employee) {
 }
 
 async function logout(skipServer = false) {
+  disablePush(ctx.store);
   if (!skipServer && ctx.token) { try { await ctx.store.logout(ctx.token); } catch { /* déjà déconnecté */ } }
   storage.del(TOKEN_KEY);
   stopLive();
@@ -222,6 +223,7 @@ function showApp() {
         </div>
       </header>
       ${local && !sessionStorage.getItem('vp_banner') ? `<div class="demo-banner">${icon('alert')}<span><b>Mode démo</b> — les comptes et le planning restent dans ce navigateur. Branche Supabase (voir le README) pour partager le planning avec toute l'équipe.</span><button class="icon-btn icon-btn-xs" data-banner-close aria-label="Masquer">${icon('x')}</button></div>` : ''}
+      <div class="push-banner" data-push-banner hidden></div>
       <main id="view" class="view"><div class="view-loading">${skeletonRows(6)}</div></main>
     </div>
     <nav class="tabbar">
@@ -232,6 +234,38 @@ function showApp() {
   startLive();
   rerender({ animate: true });
   openFromHash();
+  syncPush(ctx.store, ctx.token);
+}
+
+// Invite chacun à activer les notifications sur son téléphone (principal canal des rappels)
+function updatePushBanner() {
+  const el = $('[data-push-banner]');
+  if (!el) return;
+  let later = false;
+  try { later = !!sessionStorage.getItem('vp_push_later'); } catch { /* navigation privée */ }
+  const close = `<button class="icon-btn icon-btn-xs" data-push-later aria-label="Plus tard">${icon('x')}</button>`;
+  let html = '';
+  if (later) html = '';
+  else if (needsHomeScreen()) {
+    html = `${icon('smartphone')}<span><b>Pour être prévenu·e de tes deadlines sur iPhone</b> : touche <b>Partager</b> puis <b>« Sur l'écran d'accueil »</b>, et ouvre Versatyl depuis la nouvelle icône.</span>${close}`;
+  } else if (pushSupport() === 'default') {
+    html = `${icon('bell')}<span><b>Active les notifications</b> pour être prévenu·e sur cet appareil quand une deadline approche.</span>
+      <button class="btn btn-primary btn-sm" data-push-enable>Activer</button>${close}`;
+  }
+  el.innerHTML = html;
+  el.hidden = !html;
+}
+
+async function onPushEnable(btn) {
+  btn.disabled = true;
+  try {
+    await enablePush(ctx.store, ctx.token);
+    toast('Notifications activées : tu seras prévenu·e de tes deadlines.', { type: 'success' });
+  } catch (err) {
+    toast(err.message, { type: 'error' });
+  }
+  updatePushBanner();
+  if (parseHash().route === 'profil') rerender();
 }
 
 function onShellClick(e) {
@@ -244,6 +278,12 @@ function onShellClick(e) {
   if (e.target.closest('[data-banner-close]')) {
     sessionStorage.setItem('vp_banner', '1');
     return e.target.closest('.demo-banner').remove();
+  }
+  const pe = e.target.closest('[data-push-enable]');
+  if (pe) return onPushEnable(pe);
+  if (e.target.closest('[data-push-later]')) {
+    try { sessionStorage.setItem('vp_push_later', '1'); } catch { /* navigation privée */ }
+    return updatePushBanner();
   }
 }
 
@@ -264,6 +304,7 @@ function updateChrome(route) {
   if (badge) { badge.hidden = !unread; badge.textContent = unread > 9 ? '9+' : unread; }
   const panel = $('.notif-panel');
   if (panel) fillBell(panel);
+  updatePushBanner();
 }
 
 function rerender({ animate = false, dir = 0 } = {}) {

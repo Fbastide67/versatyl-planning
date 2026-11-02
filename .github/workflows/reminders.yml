@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
-    inputs:
-      test_email:
-        description: "Envoyer un e-mail de test à l'adresse d'envoi"
-        type: boolean
-        default: false
 
 concurrency:
   group: reminders
@@ -27,10 +22,4 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: node scripts/reminders.mjs
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          MAIL_FROM: ${{ secrets.MAIL_FROM }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          TEST_EMAIL: ${{ inputs.test_email }}

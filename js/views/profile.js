@@ -6,15 +6,16 @@ import { icon } from '../icons.js';
 import { toast, withBusy, confirmDialog } from '../ui.js';
 import { hashPassword } from '../store.js';
 import { getTheme, setTheme } from '../theme.js';
-import { pushSupport, enablePush, systemNotify } from '../notify.js';
+import { pushSupport, enablePush, systemNotify, needsHomeScreen } from '../notify.js';
 import { fmtDateFull } from '../dates.js';
 
 export const title = 'Mon profil';
 
 function pushStatus() {
   const s = pushSupport();
-  if (s === 'unsupported') return ['Non disponible sur ce navigateur (sur iPhone : ajoute le site à l’écran d’accueil).', false];
-  if (s === 'denied') return ['Bloquées dans les réglages du navigateur.', false];
+  if (needsHomeScreen()) return ['Sur iPhone : touche Partager puis « Sur l’écran d’accueil », et ouvre Versatyl depuis l’icône.', false];
+  if (s === 'unsupported') return ['Non disponible sur ce navigateur.', false];
+  if (s === 'denied') return ['Bloquées dans les réglages du navigateur : autorise-les pour ce site.', false];
   if (s === 'granted') return [ctx.store.mode === 'supabase' && CONFIG.vapidPublicKey
     ? 'Activées : tu es prévenu·e même site fermé.' : 'Activées pendant que le site est ouvert.', true];
   return ['Reçois une alerte à l’approche de tes deadlines.', false];
@@ -61,13 +62,11 @@ export function render() {
         <section class="card">
           <h3>${icon('bell')} Notifications</h3>
           <div class="setting">
-            <div><b>Rappels par e-mail</b><small>Deadlines, invitations et changements envoyés à ${esc(me.email || 'ton adresse')}.</small></div>
-            <label class="switch"><input type="checkbox" id="pref-email" ${me.email_notifications ? 'checked' : ''}><span></span></label>
-          </div>
-          <div class="setting">
             <div><b>Notifications sur cet appareil</b><small>${esc(pushText)}</small></div>
-            ${pushOn ? `<button class="btn btn-ghost btn-sm" id="push-test">Tester</button>` : `<button class="btn btn-secondary btn-sm" id="push-enable">Activer</button>`}
+            ${pushOn ? `<button class="btn btn-ghost btn-sm" id="push-test">Tester</button>`
+              : needsHomeScreen() || pushSupport() !== 'default' ? '' : `<button class="btn btn-secondary btn-sm" id="push-enable">Activer</button>`}
           </div>
+          <p class="muted small">Deadlines qui approchent, invitations, changements d'horaire : active les notifications sur chaque téléphone ou ordinateur où tu veux être prévenu·e.</p>
         </section>
 
         <section class="card">
@@ -113,10 +112,6 @@ export function mount(el) {
     await withBusy(form.querySelector('[type=submit]'),
       () => ctx.run(() => ctx.store.updateEmployee(ctx.token, me.id, patch), { success: 'Profil mis à jour.' }));
   });
-
-  el.querySelector('#pref-email').addEventListener('change', e =>
-    ctx.run(() => ctx.store.updateEmployee(ctx.token, me.id, { email_notifications: e.target.checked }),
-      { success: e.target.checked ? 'Rappels par e-mail activés.' : 'Rappels par e-mail désactivés.' }));
 
   el.querySelector('#push-enable')?.addEventListener('click', async e => {
     await withBusy(e.currentTarget, async () => {
