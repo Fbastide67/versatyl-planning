@@ -13,8 +13,10 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     .scan { max-width: 480px; margin: 0 auto; padding: 0 16px 40px; }
-    #lecteur { border-radius: var(--radius); overflow: hidden; background: #000; min-height: 60px; }
-    #lecteur:empty { display: none; }
+    #lecteur { border-radius: var(--radius); overflow: hidden; background: #000; min-height: 60px; display: none; }
+    #lecteur.actif { display: block; }
+    #lecteur-photo { display: none; }
+    label.btn { display: flex; align-items: center; justify-content: center; text-align: center; }
     #lecteur video { border-radius: var(--radius); }
     .champ { display: flex; gap: 8px; margin-top: 12px; }
     .champ input {
@@ -48,6 +50,12 @@
     <div id="zone" hidden>
       <div id="lecteur"></div>
       <button class="btn secondaire" type="button" id="camera" style="width:100%;margin-top:12px">Activer la caméra</button>
+      <label class="btn secondaire" style="width:100%;margin-top:8px">
+        Prendre le QR en photo
+        <input type="file" id="photo-qr" accept="image/*" capture="environment" hidden>
+      </label>
+      <div id="lecteur-photo"></div>
+      <p class="aide erreur" id="cam-erreur"></p>
 
       <div class="resultat" id="resultat" hidden></div>
 
@@ -161,12 +169,57 @@
     if (!lecteur || !actif) return;
     try { oui ? lecteur.pause(true) : lecteur.resume(); } catch (e) {}
   }
+  function erreurCam(e) {
+    var m = String((e && (e.message || e.name)) || e || '');
+    var txt;
+    if (/Instagram|FBAN|FBAV|Snapchat|TikTok|musical_ly|Line\//i.test(navigator.userAgent)) {
+      txt = 'Cette page est ouverte dans le navigateur d’une appli (Instagram, Snapchat…) qui bloque la caméra. Ouvre-la dans Safari ou Chrome : menu ⋯ → « Ouvrir dans le navigateur ».';
+    } else if (/NotAllowed|Permission|denied/i.test(m)) {
+      txt = 'La caméra a été refusée. iPhone : touche « aA » dans la barre d’adresse → Réglages du site web → Caméra → Autoriser (ou Réglages → Safari → Caméra). Android : cadenas à gauche de l’adresse → Autorisations → Caméra. Puis recharge la page.';
+    } else if (/NotFound|Overconstrained|no camera/i.test(m)) {
+      txt = 'Aucune caméra trouvée sur cet appareil.';
+    } else if (/NotReadable|in use|Could not start/i.test(m)) {
+      txt = 'La caméra est déjà utilisée par une autre appli. Ferme-la et réessaie.';
+    } else {
+      txt = 'Impossible d’ouvrir la caméra (' + m + ').';
+    }
+    $('cam-erreur').textContent = txt + ' En attendant : « Prendre le QR en photo » ou tape le n° de commande.';
+  }
+
+  function demarrer(source) {
+    $('lecteur').classList.add('actif');
+    var cote = Math.max(150, Math.min(260, $('lecteur').clientWidth - 40));
+    return lecteur.start(source, { fps: 10, qrbox: { width: cote, height: cote } }, verifier, function () {});
+  }
+
   $('camera').onclick = function () {
-    if (!window.Html5Qrcode) return alert('Le module caméra n’a pas chargé. Vérifie ta connexion.');
+    $('cam-erreur').textContent = '';
+    if (!window.Html5Qrcode) return erreurCam('le module caméra n’a pas chargé, vérifie ta connexion');
     lecteur = lecteur || new Html5Qrcode('lecteur');
-    lecteur.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 240 } }, verifier, function () {})
+    demarrer({ facingMode: 'environment' })
+      .catch(function (e) {
+        if (/NotAllowed|Permission|denied/i.test(String(e))) throw e;
+        // Plan B : on essaie la liste des caméras (la dernière est souvent celle de dos)
+        return Html5Qrcode.getCameras().then(function (cams) {
+          if (!cams.length) throw new Error('NotFound');
+          return demarrer(cams[cams.length - 1].id);
+        });
+      })
       .then(function () { actif = true; $('camera').hidden = true; })
-      .catch(function () { alert('Impossible d’ouvrir la caméra. Autorise-la dans les réglages du navigateur.'); });
+      .catch(function (e) { $('lecteur').classList.remove('actif'); erreurCam(e); });
+  };
+
+  // Plan B universel : photo du QR prise avec l'appareil photo du téléphone
+  var lecteurPhoto = null;
+  $('photo-qr').onchange = function () {
+    var f = this.files && this.files[0];
+    this.value = '';
+    if (!f || !window.Html5Qrcode) return;
+    $('cam-erreur').textContent = '';
+    lecteurPhoto = lecteurPhoto || new Html5Qrcode('lecteur-photo');
+    lecteurPhoto.scanFile(f, false)
+      .then(function (texte) { verifier(texte); })
+      .catch(function () { $('cam-erreur').textContent = 'QR code non reconnu sur la photo. Reprends-la plus près, bien nette et sans reflet.'; });
   };
 })();
 </script>
