@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Commande confirmée</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" id="marque" href="./"></a><span class="tag">Précommande</span></header>
+
+  <main class="wrap">
+    <div class="carte" id="carte">
+      <p class="chargement" id="chargement">Vérification de ton paiement…</p>
+    </div>
+  </main>
+
+<script>
+(function () {
+  var C = window.BOUTIQUE;
+  var $ = function (id) { return document.getElementById(id); };
+  $('marque').textContent = C.marque;
+  var p = new URLSearchParams(location.search);
+  var euros = function (n) { return Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }); };
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+
+  function afficher(o, demo) {
+    var qr = qrcode(0, 'M'); qr.addData(o.token); qr.make();
+    $('carte').innerHTML =
+      '<h1>Merci&nbsp;!</h1>' +
+      '<p style="margin:0">Ta précommande <strong>' + esc(o.numero) + '</strong> est confirmée.</p>' +
+      '<div class="qr"><img alt="QR code de ta commande" src="' + qr.createDataURL(8, 2) + '"></div>' +
+      '<p style="margin-top:0"><strong>Ton QR code</strong> ' + (demo ? 'serait envoyé par e-mail.' : 'vient d’être envoyé à <strong>' + esc(o.email) + '</strong>.') +
+      ' Fais aussi une capture d’écran : il sera scanné à la soirée et ne fonctionne qu’une fois.</p>' +
+      '<div class="recap">' +
+        '<div><span>Articles</span><span>' + esc(o.articles) + '</span></div>' +
+        '<div><span>Total payé</span><span>' + euros(o.total) + '</span></div>' +
+      '</div>' +
+      '<p class="aide" style="margin-top:14px">' + esc(C.retrait) + '</p>' +
+      (demo ? '<p class="aide">Démo : ouvre <a href="scan.html">la page scanner</a> et tape le n° ' + esc(o.numero) + ' pour tester la remise.</p>' : '');
+  }
+
+  function erreur(t) { $('carte').innerHTML = '<h1>Oups</h1><p>' + esc(t) + '</p><p class="aide">Pas d’inquiétude si tu as payé : tu recevras ton e-mail dans quelques minutes. Sinon écris à ' + esc(C.contact) + '.</p>'; }
+
+  // Mode démo
+  if (p.has('demo')) {
+    var cmd = [];
+    try { cmd = JSON.parse(localStorage.getItem('boutique_demo')) || []; } catch (e) {}
+    var o = cmd.find(function (x) { return x.token === p.get('demo'); });
+    return o ? afficher(o, true) : erreur('Commande de démo introuvable.');
+  }
+
+  var sid = p.get('session_id');
+  if (!sid || !C.API_URL) return erreur('Aucune commande à afficher.');
+
+  // Le paiement peut mettre quelques secondes à être confirmé : on réessaie
+  var essais = 0;
+  (function verifier() {
+    fetch(C.API_URL + '?action=confirm&session_id=' + encodeURIComponent(sid))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) return afficher(d.commande, false);
+        if (d.attente && ++essais < 8) return setTimeout(verifier, 2500);
+        erreur(d.error || 'Le paiement n’est pas encore confirmé.');
+      })
+      .catch(function () { if (++essais < 8) setTimeout(verifier, 2500); else erreur('Connexion impossible.'); });
+  })();
+})();
+</script>
+</body>
+</html>

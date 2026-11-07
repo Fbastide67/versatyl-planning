@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Scanner les QR</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    .scan { max-width: 480px; margin: 0 auto; padding: 0 16px 40px; }
+    #lecteur { border-radius: var(--radius); overflow: hidden; background: #000; min-height: 60px; }
+    #lecteur:empty { display: none; }
+    #lecteur video { border-radius: var(--radius); }
+    .champ { display: flex; gap: 8px; margin-top: 12px; }
+    .champ input {
+      flex: 1; min-width: 0; min-height: 52px; border-radius: 10px; border: 1.5px solid var(--line);
+      background: var(--surface); color: var(--ink); padding: 0 14px; font: inherit; font-size: 1rem;
+    }
+    .champ .btn { flex: 0 0 auto; }
+    .resultat { border-radius: var(--radius); padding: 22px 18px; color: #fff; text-align: center; margin-top: 14px; }
+    .resultat[hidden] { display: none; }
+    .resultat.ok { background: var(--ok); }
+    .resultat.ko { background: var(--ko); }
+    .resultat.inconnu { background: var(--warn); }
+    .resultat .gros { font-size: 1.9rem; font-weight: 900; font-stretch: 112%; text-transform: uppercase; line-height: 1.1; }
+    .resultat .articles { font-size: 2.3rem; font-weight: 900; margin: 10px 0 4px; }
+    .resultat p { margin: 4px 0; }
+    .resultat .btn { margin-top: 14px; width: 100%; background: #fff; color: #161514; }
+    .resultat .lien { color: #fff; margin-top: 12px; }
+    .stats { text-align: center; color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+  </style>
+</head>
+<body>
+  <div id="bandeau" class="bandeau demo" hidden>Mode démo : les commandes viennent de ce navigateur.</div>
+  <header class="topbar"><span class="brand" id="marque"></span><span class="tag">Équipe — remise</span></header>
+
+  <main class="scan">
+    <form id="form-pin" class="champ" hidden>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Code équipe" aria-label="Code équipe">
+      <button class="btn" type="submit">OK</button>
+    </form>
+
+    <div id="zone" hidden>
+      <div id="lecteur"></div>
+      <button class="btn secondaire" type="button" id="camera" style="width:100%;margin-top:12px">Activer la caméra</button>
+
+      <div class="resultat" id="resultat" hidden></div>
+
+      <form id="form-manuel" class="champ">
+        <input id="manuel" placeholder="Ou tape le n° (ex : T-0007)" aria-label="Numéro de commande" autocapitalize="characters">
+        <button class="btn" type="submit">Vérifier</button>
+      </form>
+      <p class="stats" id="stats"></p>
+    </div>
+  </main>
+
+<script>
+(function () {
+  var C = window.BOUTIQUE;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+  var demo = !C.API_URL;
+  $('marque').textContent = C.marque;
+  var pin = '';
+  try { pin = localStorage.getItem('boutique_pin') || ''; } catch (e) {}
+
+  if (demo) { $('bandeau').hidden = false; $('zone').hidden = false; }
+  else if (pin) { $('zone').hidden = false; }
+  else { $('form-pin').hidden = false; }
+
+  $('form-pin').onsubmit = function (e) {
+    e.preventDefault();
+    pin = $('pin').value.trim(); if (!pin) return;
+    try { localStorage.setItem('boutique_pin', pin); } catch (err) {}
+    $('form-pin').hidden = true; $('zone').hidden = false;
+  };
+
+  // ---------- Appels ----------
+  function demander(action, code) {
+    if (demo) return Promise.resolve(demoAction(action, code));
+    return fetch(C.API_URL + '?action=' + action + '&code=' + encodeURIComponent(code) + '&pin=' + encodeURIComponent(pin))
+      .then(function (r) { return r.json(); });
+  }
+
+  function demoAction(action, code) {
+    var cmd = [];
+    try { cmd = JSON.parse(localStorage.getItem('boutique_demo')) || []; } catch (e) {}
+    var c = code.trim().toUpperCase();
+    var o = cmd.find(function (x) { return x.token === code.trim() || x.numero === c; });
+    var stats = function () { return { remises: cmd.filter(function (x) { return x.statut === 'Remis'; }).length, total: cmd.length }; };
+    if (!o) return { ok: false, statut: 'inconnu', stats: stats() };
+    var res;
+    if (action === 'undo') { o.statut = 'À remettre'; o.remisLe = ''; res = { ok: true, annule: true, commande: o }; }
+    else if (o.statut === 'Remis') res = { ok: true, deja: true, commande: o };
+    else { o.statut = 'Remis'; o.remisLe = new Date().toISOString(); res = { ok: true, deja: false, commande: o }; }
+    try { localStorage.setItem('boutique_demo', JSON.stringify(cmd)); } catch (e) {}
+    res.stats = stats(); return res;
+  }
+
+  // ---------- Affichage ----------
+  var occupe = false;
+  function heure(iso) { return iso ? new Date(iso).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
+
+  function verifier(code) {
+    if (occupe || !code) return;
+    occupe = true;
+    pause(true);
+    var r = $('resultat'); r.hidden = false; r.className = 'resultat inconnu'; r.innerHTML = '<p class="gros">Vérification…</p>';
+    demander('scan', code).then(function (d) {
+      if (d.stats) $('stats').textContent = d.stats.remises + ' / ' + d.stats.total + ' commandes remises';
+      if (d.erreurPin) {
+        try { localStorage.removeItem('boutique_pin'); } catch (e) {}
+        r.className = 'resultat ko'; r.innerHTML = '<p class="gros">Code équipe faux</p><button class="btn" type="button" onclick="location.reload()">Ressaisir</button>';
+        return;
+      }
+      var o = d.commande;
+      if (!d.ok) {
+        r.className = 'resultat ' + (d.statut === 'inconnu' ? 'inconnu' : 'ko');
+        r.innerHTML = '<p class="gros">' + (d.statut === 'inconnu' ? 'QR code inconnu' : esc(d.error || 'Refusé')) + '</p>' +
+          (o ? '<p>' + esc(o.numero) + ' — ' + esc(o.nom) + '</p>' : '<p>Ce code ne correspond à aucune commande.</p>') + suivant();
+      } else if (d.deja) {
+        vibrer([200, 100, 200]);
+        r.className = 'resultat ko';
+        r.innerHTML = '<p class="gros">Déjà remis</p><p class="articles">' + esc(o.articles) + '</p>' +
+          '<p>' + esc(o.numero) + ' — ' + esc(o.nom) + '</p><p>Donné ' + esc(heure(o.remisLe)) + '</p>' + suivant();
+      } else {
+        vibrer(120);
+        r.className = 'resultat ok';
+        r.innerHTML = '<p class="gros">À remettre</p><p class="articles">' + esc(o.articles) + '</p>' +
+          '<p>' + esc(o.numero) + ' — ' + esc(o.nom) + '</p>' + suivant() +
+          '<button class="lien" type="button" id="annuler">Erreur ? Annuler cette remise</button>';
+        $('annuler').onclick = function () {
+          demander('undo', o.token || o.numero).then(function () {
+            r.className = 'resultat inconnu'; r.innerHTML = '<p class="gros">Remise annulée</p><p>' + esc(o.numero) + ' peut de nouveau être remis.</p>' + suivant();
+            branche();
+          });
+        };
+      }
+      branche();
+    }).catch(function () {
+      r.className = 'resultat ko'; r.innerHTML = '<p class="gros">Pas de connexion</p><p>Vérifie le réseau et réessaie.</p>' + suivant(); branche();
+    });
+  }
+  function suivant() { return '<button class="btn" type="button" data-suivant>Scanner le suivant</button>'; }
+  function branche() {
+    var b = document.querySelector('[data-suivant]');
+    if (b) b.onclick = function () { $('resultat').hidden = true; $('manuel').value = ''; occupe = false; pause(false); };
+  }
+  function vibrer(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+  $('form-manuel').onsubmit = function (e) { e.preventDefault(); verifier($('manuel').value.trim()); };
+
+  // ---------- Caméra ----------
+  var lecteur = null, actif = false;
+  function pause(oui) {
+    if (!lecteur || !actif) return;
+    try { oui ? lecteur.pause(true) : lecteur.resume(); } catch (e) {}
+  }
+  $('camera').onclick = function () {
+    if (!window.Html5Qrcode) return alert('Le module caméra n’a pas chargé. Vérifie ta connexion.');
+    lecteur = lecteur || new Html5Qrcode('lecteur');
+    lecteur.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 240 } }, verifier, function () {})
+      .then(function () { actif = true; $('camera').hidden = true; })
+      .catch(function () { alert('Impossible d’ouvrir la caméra. Autorise-la dans les réglages du navigateur.'); });
+  };
+})();
+</script>
+</body>
+</html>

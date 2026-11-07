@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Précommande T-shirt</title>
+  <meta name="description" content="Précommande du t-shirt : choisis ta taille, paie en ligne, récupère-le à la soirée avec ton QR code.">
+  <meta name="theme-color" content="#f3f0e9">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <div id="bandeau" class="bandeau" hidden></div>
+
+  <header class="topbar">
+    <a class="brand" id="marque" href="./"></a>
+    <span class="tag">Précommande</span>
+  </header>
+
+  <main class="wrap produit">
+    <section class="galerie" aria-label="Photos du t-shirt">
+      <div class="galerie-principale"><img id="photo" alt=""></div>
+      <div class="vignettes" id="vignettes"></div>
+    </section>
+
+    <section>
+      <h1 id="nom"></h1>
+      <p class="prix" id="prix"></p>
+      <p class="accroche" id="accroche"></p>
+      <div class="statut" id="statut"></div>
+
+      <div class="bloc">
+        <div class="bloc-titre">
+          <span>Taille</span>
+          <button class="lien" type="button" id="btn-guide" aria-expanded="false">Guide des tailles</button>
+        </div>
+        <div class="tailles" id="tailles" role="group" aria-label="Choix de la taille"></div>
+        <div class="guide" id="guide" hidden></div>
+      </div>
+
+      <div class="bloc">
+        <div class="bloc-titre"><span>Quantité</span></div>
+        <div class="ligne-ajout">
+          <div class="quantite">
+            <button type="button" id="moins" aria-label="Retirer un">−</button>
+            <output id="qte">1</output>
+            <button type="button" id="plus" aria-label="Ajouter un">+</button>
+          </div>
+          <button class="btn" type="button" id="ajouter">Ajouter au panier</button>
+        </div>
+        <p class="aide" id="aide-ajout"></p>
+      </div>
+
+      <div class="bloc panier" id="panier" hidden>
+        <div class="bloc-titre"><span>Ton panier</span></div>
+        <ul id="lignes"></ul>
+        <div class="total"><span>Total</span><span id="total"></span></div>
+        <p class="promo-note">Un code promo ? Tu pourras le saisir sur la page de paiement.</p>
+        <button class="btn accent" type="button" id="payer" style="width:100%">Payer ma précommande</button>
+        <p class="aide" id="aide-payer"></p>
+      </div>
+
+      <div class="bloc infos">
+        <details open>
+          <summary>Le t-shirt</summary>
+          <div class="contenu"><p id="description" style="margin-top:0"></p><dl id="details"></dl></div>
+        </details>
+        <details>
+          <summary>Comment ça marche</summary>
+          <div class="contenu">
+            <ol class="etapes">
+              <li>Tu choisis ta taille et tu paies en ligne (carte, Apple Pay, Google Pay).</li>
+              <li>Tu reçois aussitôt un e-mail avec ton QR code personnel.</li>
+              <li><span id="retrait"></span></li>
+            </ol>
+          </div>
+        </details>
+        <details>
+          <summary>Conditions de précommande</summary>
+          <div class="contenu">
+            <p style="margin-top:0">Les t-shirts sont fabriqués après la fin des précommandes. Chaque QR code permet de récupérer la commande <strong>une seule fois</strong> : ne le partage pas.</p>
+            <p>Si la production ne pouvait pas avoir lieu, tu serais remboursé intégralement. Tu disposes d'un droit de rétractation de 14 jours après ton paiement : écris-nous pour l'exercer.</p>
+            <p>Paiement sécurisé par Stripe. Nous ne voyons jamais ton numéro de carte.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a id="lien-insta" href="#" target="_blank" rel="noopener">Instagram</a>
+    <a id="lien-contact" href="#">Contact</a>
+  </footer>
+
+  <div class="barre" id="barre" hidden>
+    <div class="resume"><span id="barre-nb"></span><strong id="barre-total"></strong></div>
+    <button class="btn accent" type="button" id="barre-payer">Payer</button>
+  </div>
+
+<script>
+(function () {
+  var C = window.BOUTIQUE;
+  var $ = function (id) { return document.getElementById(id); };
+  var euros = function (n) { return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: n % 1 ? 2 : 0 }); };
+  var demo = !C.API_URL;
+
+  // ---------- Textes ----------
+  document.title = C.produit + ' — ' + C.marque;
+  $('marque').textContent = C.marque;
+  $('nom').textContent = C.produit;
+  $('prix').textContent = euros(C.prix);
+  $('accroche').textContent = C.accroche;
+  $('description').textContent = C.description;
+  $('retrait').textContent = C.retrait;
+  $('lien-insta').href = C.instagram;
+  $('lien-contact').href = 'mailto:' + C.contact;
+  C.details.forEach(function (d) {
+    var dt = document.createElement('dt'); dt.textContent = d[0];
+    var dd = document.createElement('dd'); dd.textContent = d[1];
+    $('details').append(dt, dd);
+  });
+
+  var fin = new Date(C.finPrecommande);
+  var ouvert = new Date() < fin;
+  var dateFin = fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  $('statut').textContent = ouvert ? 'Précommandes ouvertes jusqu’au ' + dateFin : 'Précommandes terminées';
+  if (!ouvert) { $('statut').classList.add('ferme'); $('ajouter').disabled = true; }
+
+  var params = new URLSearchParams(location.search);
+  if (demo) { $('bandeau').hidden = false; $('bandeau').className = 'bandeau demo'; $('bandeau').textContent = 'Mode démo : aucun paiement réel, tout est simulé.'; }
+  else if (params.has('annule')) { $('bandeau').hidden = false; $('bandeau').textContent = 'Paiement annulé. Ton panier est toujours là.'; }
+
+  // ---------- Photos ----------
+  function tshirt(couleur, texte, dos) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="#e7e2d7"/>' +
+      '<path d="M140 70 L92 90 L40 150 L80 190 L112 165 L112 345 L288 345 L288 165 L320 190 L360 150 L308 90 L260 70 ' +
+      (dos ? 'Q230 80 200 80 Q170 80 140 70 Z' : 'Q245 112 200 112 Q155 112 140 70 Z') + '" fill="' + couleur + '" stroke="#00000022" stroke-width="2"/>' +
+      '<text x="200" y="' + (dos ? 200 : 215) + '" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="22" fill="#e7e2d7" letter-spacing="2">' + texte + '</text>' +
+      '<text x="200" y="385" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#8a857b">' + (dos ? 'DOS' : 'DEVANT') + ' — visuel provisoire</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  var photos = C.photos.length ? C.photos : [
+    { src: tshirt('#1d1c1a', 'TON DESIGN', false), alt: 'Devant du t-shirt (visuel provisoire)' },
+    { src: tshirt('#1d1c1a', 'DESIGN DOS', true), alt: 'Dos du t-shirt (visuel provisoire)' },
+  ];
+  function montrer(i) {
+    $('photo').src = photos[i].src; $('photo').alt = photos[i].alt;
+    Array.prototype.forEach.call($('vignettes').children, function (b, j) { b.setAttribute('aria-current', i === j); });
+  }
+  photos.forEach(function (p, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('aria-label', 'Voir : ' + p.alt);
+    var img = document.createElement('img'); img.src = p.src; img.alt = '';
+    b.append(img); b.onclick = function () { montrer(i); };
+    $('vignettes').append(b);
+  });
+  if (photos.length < 2) $('vignettes').hidden = true;
+  montrer(0);
+
+  // ---------- Tailles + guide ----------
+  var taille = null, qte = 1;
+  C.tailles.forEach(function (t) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = t; b.setAttribute('aria-pressed', 'false');
+    b.onclick = function () {
+      taille = t;
+      Array.prototype.forEach.call($('tailles').children, function (x) { x.setAttribute('aria-pressed', x === b); });
+      aide('');
+    };
+    $('tailles').append(b);
+  });
+  var g = C.guideTailles;
+  $('guide').innerHTML = '<table><thead><tr>' + g.entetes.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+    '</tr></thead><tbody>' + g.lignes.map(function (l) { return '<tr>' + l.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') +
+    '</tbody></table><p>Mesures à plat, en centimètres. Entre deux tailles ? Prends la plus grande.</p>';
+  $('btn-guide').onclick = function () {
+    var ouvre = $('guide').hidden; $('guide').hidden = !ouvre; this.setAttribute('aria-expanded', ouvre);
+  };
+
+  // ---------- Quantité ----------
+  $('moins').onclick = function () { qte = Math.max(1, qte - 1); $('qte').textContent = qte; };
+  $('plus').onclick = function () { qte = Math.min(C.maxParTaille, qte + 1); $('qte').textContent = qte; };
+  function aide(t, err) { $('aide-ajout').textContent = t; $('aide-ajout').className = 'aide' + (err ? ' erreur' : ''); }
+
+  // ---------- Panier ----------
+  var panier = [];
+  try { panier = JSON.parse(sessionStorage.getItem('boutique_panier')) || []; } catch (e) {}
+  function sauver() { try { sessionStorage.setItem('boutique_panier', JSON.stringify(panier)); } catch (e) {} }
+
+  $('ajouter').onclick = function () {
+    if (!taille) return aide('Choisis d’abord ta taille.', true);
+    var l = panier.find(function (x) { return x.size === taille; });
+    if (l) l.qty = Math.min(C.maxParTaille, l.qty + qte); else panier.push({ size: taille, qty: qte });
+    panier.sort(function (a, b) { return C.tailles.indexOf(a.size) - C.tailles.indexOf(b.size); });
+    qte = 1; $('qte').textContent = 1;
+    aide('Ajouté ! Tu peux ajouter une autre taille ou payer.');
+    rendre(); sauver();
+  };
+
+  function rendre() {
+    var nb = panier.reduce(function (s, l) { return s + l.qty; }, 0);
+    var total = nb * C.prix;
+    $('panier').hidden = !nb; $('barre').hidden = !nb;
+    $('lignes').innerHTML = '';
+    panier.forEach(function (l, i) {
+      var li = document.createElement('li');
+      var t = document.createElement('span'); t.textContent = 'Taille ' + l.size + ' × ' + l.qty + ' — ' + euros(l.qty * C.prix);
+      var r = document.createElement('button'); r.type = 'button'; r.textContent = 'Retirer';
+      r.onclick = function () { panier.splice(i, 1); rendre(); sauver(); };
+      li.append(t, r); $('lignes').append(li);
+    });
+    $('total').textContent = euros(total);
+    $('barre-nb').textContent = nb + ' t-shirt' + (nb > 1 ? 's' : '');
+    $('barre-total').textContent = euros(total);
+    $('payer').disabled = $('barre-payer').disabled = !ouvert;
+  }
+  rendre();
+
+  // ---------- Paiement ----------
+  function payer() {
+    if (!panier.length) return;
+    $('payer').disabled = $('barre-payer').disabled = true;
+    $('aide-payer').className = 'aide'; $('aide-payer').textContent = 'Redirection vers le paiement sécurisé…';
+
+    if (demo) return commandeDemo();
+
+    fetch(C.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'checkout', items: panier }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) throw new Error(d.error || 'Erreur inconnue');
+        location.href = d.url;
+      })
+      .catch(function (e) {
+        $('aide-payer').className = 'aide erreur';
+        $('aide-payer').textContent = 'Le paiement n’a pas pu démarrer : ' + e.message + '. Réessaie dans un instant.';
+        $('payer').disabled = $('barre-payer').disabled = false;
+      });
+  }
+  $('payer').onclick = payer;
+  $('barre-payer').onclick = payer;
+
+  // Mode démo : on simule une commande payée, enregistrée dans ce navigateur
+  function commandeDemo() {
+    var cmd = [];
+    try { cmd = JSON.parse(localStorage.getItem('boutique_demo')) || []; } catch (e) {}
+    var nb = panier.reduce(function (s, l) { return s + l.qty; }, 0);
+    var token = 'DEMO' + Math.random().toString(36).slice(2, 10).toUpperCase();
+    cmd.push({
+      numero: 'T-' + String(cmd.length + 1).padStart(4, '0'), token: token, nom: 'Client démo', email: 'client@exemple.fr',
+      articles: panier.map(function (l) { return l.size + ' ×' + l.qty; }).join(', '), nb: nb, total: nb * C.prix,
+      statut: 'À remettre', remisLe: '',
+    });
+    try { localStorage.setItem('boutique_demo', JSON.stringify(cmd)); } catch (e) {}
+    panier = []; sauver();
+    setTimeout(function () { location.href = 'merci.html?demo=' + token; }, 600);
+  }
+})();
+</script>
+</body>
+</html>
