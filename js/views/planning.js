@@ -2,7 +2,7 @@
 // - planning d'équipe : une ligne par personne
 // - plan de com : une ligne par canal (Instagram, newsletter…)
 import { CONFIG } from '../config.js';
-import { ctx } from '../ctx.js';
+import { ctx, saveFilters } from '../ctx.js';
 import { esc, avatar, fullName, colorFor, plural, rolesOf, mainRole } from '../util.js';
 import { icon } from '../icons.js';
 import {
@@ -74,13 +74,14 @@ const TEAM = {
     return { everyone: team, participants: team ? [] : [rowId] };
   },
   filters(p) {
-    const roles = [...new Set(ctx.state.employees.flatMap(rolesOf))].sort();
+    const roles = [...new Set([...ctx.state.employees.flatMap(rolesOf), ...(p.role ? [p.role] : [])])].sort();
     return `<select class="input input-sm" data-filter="role" aria-label="Filtrer par poste">
         <option value="">Tous les postes</option>
         ${roles.map(r => `<option ${r === p.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}
       </select>`;
   },
   onFilter(p, name, value) { if (name === 'role') p.role = value; },
+  saved: p => ({ role: p.role, mine: p.mine }),
   empty: 'Personne ne correspond à ce filtre.',
 };
 
@@ -120,13 +121,14 @@ const COM = {
   },
   filters(p) {
     const used = ctx.state.events.filter(ev => evCalendar(ev) === 'com').flatMap(ev => ev.channels || []);
-    const all = [...new Set([...CONFIG.channels, ...used])];
+    const all = [...new Set([...CONFIG.channels, ...used, ...(p.channel ? [p.channel] : [])])];
     return `<select class="input input-sm" data-filter="channel" aria-label="Filtrer par canal">
         <option value="">Tous les canaux</option>
         ${all.map(c => `<option ${c === p.channel ? 'selected' : ''}>${esc(c)}</option>`).join('')}
       </select>`;
   },
   onFilter(p, name, value) { if (name === 'channel') p.channel = value; },
+  saved: p => ({ channel: p.channel, mine: p.mine }),
   empty: 'Aucun canal ne correspond à ce filtre.',
 };
 
@@ -286,6 +288,7 @@ function mount(cfg, el) {
     if (!f) return;
     if (f === 'mine') p.mine = e.target.checked;
     else cfg.onFilter(p, f, e.target.value);
+    saveFilters(cfg.calendar === 'com' ? 'com' : 'planning', cfg.saved(p));
     ctx.rerender({ animate: true });
   });
 }
