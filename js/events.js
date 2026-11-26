@@ -1,4 +1,4 @@
-import { startOfDay, DAY, HOUR } from './dates.js';
+import { startOfDay, addDays, sameDay, DAY, HOUR } from './dates.js';
 
 export const KINDS = {
   event: { label: 'Événement', icon: 'calendar', color: '#7c3aed', reminders: [1440, 60] },
@@ -23,10 +23,19 @@ export const evColor = ev => ev.color || KINDS[ev.kind]?.color || KINDS.event.co
 export const evStart = ev => new Date(ev.starts_at);
 export const evEnd = ev => new Date(ev.ends_at || ev.starts_at);
 
+// Dernier jour d'affichage : une soirée qui se termine dans la nuit (avant midi le lendemain,
+// ex. 23h → 4h30) reste uniquement sur le jour où elle commence
+export function evLastDay(ev) {
+  const s = evStart(ev);
+  const e = evEnd(ev);
+  if (!ev.all_day && sameDay(e, addDays(s, 1)) && e.getHours() < 12) return startOfDay(s);
+  return startOfDay(e);
+}
+
 // L'événement apparaît-il ce jour-là ?
 export function occursOn(ev, day) {
   const d = startOfDay(day).getTime();
-  return startOfDay(evStart(ev)).getTime() <= d && d <= startOfDay(evEnd(ev)).getTime();
+  return startOfDay(evStart(ev)).getTime() <= d && d <= evLastDay(ev).getTime();
 }
 
 // Lignes du planning où l'événement s'affiche : « team » ou les participants (sinon le créateur)

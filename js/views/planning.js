@@ -9,7 +9,7 @@ import {
   startOfDay, startOfWeek, startOfMonth, addDays, addMonths, dayKey, parseDayKey, sameDay,
   isoWeek, fmtTime, fmtWeekday, fmtDateShort, fmtDate, fmtMonth,
 } from '../dates.js';
-import { KINDS, CALENDARS, evColor, evStart, evEnd, evCalendar, occursOn, rowsFor, isMine, urgency, byStart } from '../events.js';
+import { KINDS, CALENDARS, evColor, evStart, evEnd, evCalendar, evLastDay, occursOn, rowsFor, isMine, urgency, byStart } from '../events.js';
 import { openEventDetail, openEventForm } from './event-modal.js';
 
 const VIEWS = { day: 'Jour', week: 'Semaine', month: 'Mois' };
@@ -137,7 +137,7 @@ function cardTime(ev, day) {
   const e = evEnd(ev);
   if (ev.all_day) return 'Journée';
   if (ev.kind !== 'event') return fmtTime(s);
-  if (!sameDay(s, e)) return sameDay(s, day) ? `${fmtTime(s)} →` : sameDay(e, day) ? `→ ${fmtTime(e)}` : 'Journée';
+  if (!sameDay(s, evLastDay(ev))) return sameDay(s, day) ? `${fmtTime(s)} →` : sameDay(e, day) ? `→ ${fmtTime(e)}` : 'Journée';
   return ev.ends_at ? `${fmtTime(s)} – ${fmtTime(e)}` : fmtTime(s);
 }
 
@@ -163,7 +163,7 @@ function renderGrid(cfg, days) {
   const idx = new Map();
   const counts = new Map();
   for (const ev of inCalendar(cfg)) {
-    if (startOfDay(evEnd(ev)) < first || startOfDay(evStart(ev)) > last) continue;
+    if (evLastDay(ev) < first || startOfDay(evStart(ev)) > last) continue;
     for (const r of cfg.rowsOf(ev)) {
       let seen = false;
       for (const d of days) {
